@@ -79,7 +79,7 @@ vif(RL) #VIF
 
 pred_RL = ifelse(pred_RL < 0.5, 0, 1)
 
-matriz_RL = table(dataNormTest$class, RL_pred)
+matriz_RL = table(dataNormTest$class, pred_RL)
 
 confusionMatrix(matriz_RL, positive = "1")
 
@@ -95,28 +95,58 @@ data_lr$x6 = sqrt(dataNorm$swti)
 data_lr$x7 = log(dataNorm$cwti) 
 data_lr$x8 = (dataNorm$ei)^(-1) 
 
-lr_reg_ind = data_lr[,c(1:4,6:9)]
-lr_reg_dep = data_lr$class
+#lr_reg_ind = data_lr[,c(1:4,6:9)]
+#lr_reg_dep = data_lr$class
+
+# split e validation
 set.seed(123) 
+sample_rlr = sample.split(data_lr$vwti, SplitRatio = 0.8)
+train_rlr = subset(data_lr, sample_rlr == T)
+test_rlr = subset(data_lr, sample_rlr == F)
 
-cvLR = cv.glmnet(x = as.matrix(lr_reg_ind),
-                  y = lr_reg_dep,
-                  family = "binomial",
-                  nfolds = 10,
-                  alpha = 1,
-                  nlambda = 100,
-                  parallel = T)
+set.seed(123) 
+sample_rlr_val = sample.split(train_rlr$vwti, SplitRatio = 0.2)
+validation_rlr = subset(train_rlr, sample_rlr_val == T)
 
-model.cv
-plot(model.cv)
+train_val_y = as.data.frame(validation_rlr[-5]) 
+train_val_x = (validation_rlr$class)
 
-pred_RL_reg = predict.glmnet(cvLR, 
-                             newx = lr_reg_ind, 
-                             type = "response")
+cvLR = cv.glmnet(x = as.matrix(train_val_y), #lr_reg_ind
+                 y = train_val_x, #lr_reg_dep
+                 family = "binomial",
+                 type.measure = "deviance", 
+                 nfolds = 10,
+                 alpha = 1, #lasso
+                 parallel = F)
 
-rl_regMetrics = getMetrics(pred_RL, dataNormTest$class)
-write.csv(rlMetrics, file = "Results/metrics_rl_reg.csv")
+# trainamento
 
+# set.seed(123) 
+# sample_val = sample.split(data_lr$vwti, SplitRatio = 0.2)
+# sample_val = subset(data_lr, sample == F)
+
+lr_reg_train_ind = train_rlr[,c(1:4,6:9)]
+lr_reg_train_dep = train_rlr$class
+
+lr_reg = glmnet(x = as.matrix(lr_reg_train_ind), 
+                y = lr_reg_train_dep,
+                family = "binomial",
+                lambda = cvLR$lambda.1se)
+# test
+
+lr_reg_test_ind = test_rlr[,c(1:4,6:9)]
+lr_reg_test_dep = test_rlr$class
+
+
+pred_RL_reg = predict(lr_reg,
+                      s = cvLR$lambda.1se,
+                      newx = as.matrix(lr_reg_test_ind),
+                      type = "response")
+
+pred_RL_reg = ifelse(pred_RL_reg < 0.5, 0, 1)
+
+rl_regMetrics = getMetrics(pred_RL_reg, lr_reg_test_dep)
+write.csv(rl_regMetrics, file = "Results/metrics_rl_reg.csv")
 
 # RL_reg = glm(class ~ ., 
 #          data = data_lr,

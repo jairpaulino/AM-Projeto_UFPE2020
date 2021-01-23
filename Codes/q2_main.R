@@ -14,9 +14,11 @@ library(stargazer) #stargazer
 library(faraway)   #vif
 library(glmnet)    #cv.glmnet
 library(class)     #knn
-library(kdensity)  #
-library(ks)        #
-library(Compositional)      #
+library(reticulate)
+
+# library(kdensity)  #
+# library(ks)        #
+# library(Compositional)      #
 
 # Chamar funcoes
 source("Codes/auxiliar.R")
@@ -226,3 +228,8 @@ length(classResult$EVM)
 
 # Fase 3 - Teste ----
 
+
+
+
+dd = iris
+head(iris)

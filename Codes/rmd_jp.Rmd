@@ -1,0 +1,99 @@
+---
+title: "test"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Examples for python in R
+```{r}
+library(reticulate)
+repl_python()
+```
+
+# Importar bibliotecas
+```{python}
+#import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import math
+import os
+
+from sklearn.model_selection import train_test_split, cross_validate, StratifiedKFold, GridSearchCV
+
+from sklearn.neighbors import KernelDensity
+from scipy.signal import parzen 
+from sklearn.model_selection import ParameterGrid
+from sklearn.preprocessing import Normalizer
+
+```
+
+# Importando e manipulando dados
+```{python}
+os.chdir('C:\\Users\\jairp\\Documents\\GitHub\\AM-Projeto_UFPE2020')
+df = pd.read_csv("Data/data_banknote_authentication.txt",
+names=['var','skew','curt','entr','class'])
+
+X = df[df.columns[0:4]]
+y = df[df.columns[4:5]]
+
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=43)
+
+normalizer = Normalizer().fit(X)
+X_norm = normalizer.transform(X)
+X_val_norm = normalizer.transform(X_val)
+```
+
+# Convertendo df para array
+```{python}
+import numpy as np 
+
+headers = np.array(df.columns)
+values = df.values
+matrix = np.concatenate([[headers], values]) 
+
+X = values[:,:3]
+y = values[:,4]
+X[y == 1]
+```
+
+# Importanto bibliotecas e modelando
+```{python}
+from sklearn.neighbors import KernelDensity
+
+estimators = []
+for c in [0, 1]:
+ m = KernelDensity(bandwidth = 0.5).fit(X[y == c])
+ estimators.append(m)
+
+for estimator in estimators:
+  print(estimator.score_samples([X[194]]))
+```
+
+# Exemplo: IRIS
+```{python}
+from sklearn.datasets import load_iris
+from sklearn.neighbors import KernelDensity
+```
+
+# Importar banco de dados
+```{python}
+X, y = load_iris(return_X_y = True)
+X, y
+```
+
+# Modelando os dados
+```{python}
+estimators = []
+for c in [0, 1, 2]:
+ m = KernelDensity(bandwidth = 0.5).fit(X[y == c])
+ estimators.append(m)
+
+for estimator in estimators:
+  print(estimator.score_samples([X[137]]))
+```
+
+
+

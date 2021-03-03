@@ -1,3 +1,7 @@
+#Title: Repeated K-Fold CV to glass classification
+#Author: Jair Paulino
+#Date: 2021/02/15
+
 # Inicializacao ----
 # limpar dados e figuras
 rm(list = ls()); graphics.off()
@@ -9,19 +13,20 @@ library(corrplot)  #cor
 library(caTools)   #sample.split
 library(e1071)     #naiveBayes
 library(caret)     #confusionMatrix
-library(MLmetrics)
-library(stargazer) #stargazer
-library(faraway)   #vif
+library(MLmetrics) #metrics
 library(glmnet)    #cv.glmnet
 library(class)     #knn
-library(reticulate)
-library(dplyr)
- 
-# library(kdensity)  #
-# library(ks)        #
-# library(Compositional)      #
+library(dplyr)     #dados
+library(reshape2)  #dados
+library(ks)        #Parzen
+library(klaR)
 
-# Chamar funcoes
+#library(reticulate)
+#library(kdensity)
+#library(ks)        
+#library(Compositional)
+
+# Importar funcoes implementadas
 source("Codes/auxiliar.R")
 source("Codes/modelsAM.R")
 
@@ -41,8 +46,8 @@ set.seed(123)
 sample = sample.split(dataNorm$vwti, SplitRatio = 0.8)
 dataNormTrain = subset(dataNorm, sample == T)
 dataNormTest = subset(dataNorm, sample == F)
-#dataNormTrain %>% count(class)
-#dataNormTest %>% count(class)
+# dataNormTrain %>% count(class)
+# dataNormTest %>% count(class)
 
 set.seed(123) 
 sample_val = sample.split(dataNormTrain$vwti, SplitRatio = 0.2)
@@ -51,21 +56,21 @@ dataNormValid = subset(dataNormTrain, sample_val == T)
 
 # FASE 2 - Modelagem ----
 # M1 - Classificador bayesiano gaussiano (CBG)
-modelCGB = getGBG(train = dataNormTrain,
-                  test = dataNormTest,
-                  exportResults = T)
+modelCGB = getCBG_cv(train = dataNormTrain,
+                     test = dataNormTest,
+                     exportResults = T)
 # Resultados CBG 
 modelCGB$Model
 modelCGB$Metrics
 modelCGB$Results
 
 # M2 - CBG baseado em K-vizinhos (CBG-kNN)
-modelKNN = getKNN(train = dataNormTrain,
-                  valid = dataNormValid,
-                  test = dataNormTest,
-                  exportResults = T)
+modelKNN = getKNN_cv(train_df = dataNormTrain,
+                     valid_df = dataNormValid,
+                     test_df = dataNormTest,
+                     exportResults = T)
 # Resultados KNN 
-modelKNN$Model
+modelKNN$K
 modelKNN$Metrics
 modelKNN$Results
 
@@ -117,6 +122,10 @@ View(metricTable)
 
 write.csv(metricTable, file = "Results/metricTable.csv")
 
+metricTable$ID = seq.int(nrow(metricTable))
+myData = melt(metricTable, id.vars = "ID")
+friedman.test(myData$value, myData$variable, myData$ID)
+
 # Finalizar Parzer (em R)
 # Calcular tempo de processamento para cada modelo
-# Implementar Friedman test
+# Revisar Friedman test

@@ -1,10 +1,9 @@
 # M1 - Classificador bayesiano gaussiano (CBG)
-getGBG = function(train, test, exportResults = F){
+getCBG = function(train, test, exportResults = F){
   #train = dataNormTrain; test = dataNormTest
   
-  model_cbg = naiveBayes(x = train[-5], 
-                   y = train$class)
-  #print(model_cbg)
+  model_cbg = naiveBayes(x = train[-5], y = train$class)
+  #plot(model_cbg)
   
   cgb_predict = predict(model_cbg, newdata = test[-5])
   matriz_CBG = table(test$class, cgb_predict)
@@ -29,7 +28,108 @@ getGBG = function(train, test, exportResults = F){
   )
 }
 
-# M2 - Classificador bayesiano gaussiano (CBG)
+# M1_cv - Classificador bayesiano gaussiano (CBG) com CV
+getCBG_cv = function(train_df, test_df, exportResults = F){
+  #train_df = dataNormTrain; test_df = dataNormTest
+  
+  foldIndex = cvFolds(length(train_df$vwti), K = 10, R = 1)
+  resultMatrixCV = as.data.frame(matrix(ncol=4, nrow=10))
+  names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
+  
+  bestModelIndex = 1; bestModelAcc = 100; bestModel = NULL
+  for(i in 1:10){#i=9
+    train <- train_df[foldIndex$subsets[foldIndex$which != i], ] #Set the training set
+    validation <- train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
+    
+    model_cbg_cv = naiveBayes(x = train[-5], 
+                              y = train$class)
+    
+    cgb_predict = predict(model_cbg_cv, newdata = validation[-5])
+    cbgMetrics = getMetrics(cgb_predict, validation$class)
+    resultMatrixCV[i,] = cbgMetrics
+    
+    #View(resultMatrixCV)
+    if(cbgMetrics[1] < bestModelAcc){
+      bestModelAcc = cbgMetrics[1]
+      bestModelIndex = i
+      bestModel = model_cbg_cv
+    }
+  }
+  
+  write.csv(resultMatrixCV, file = "Results/cv_metrics_cbg.csv")
+
+  # Calculo do IC
+  
+  meanErroRateresult = mean(resultMatrixCV$ErroRate)
+  sdErroRateresult = sd(resultMatrixCV$ErroRate)
+  icErroRate = (t.test(resultMatrixCV$ErroRate))$conf.int[1:2]
+  
+  meanPrecision = mean(resultMatrixCV$Precision)
+  sdPrecision = sd(resultMatrixCV$Precision)
+  icPrecision = (t.test(resultMatrixCV$Precision))$conf.int[1:2]
+  
+  meanRecall = mean(resultMatrixCV$recall)
+  sdRecall = sd(resultMatrixCV$recall)
+  icRecall = (t.test(resultMatrixCV$recall))$conf.int[1:2]
+  
+  meanf1Score = mean(resultMatrixCV$F1)
+  sdf1Score = sd(resultMatrixCV$F1)
+  icf1Score = (t.test(resultMatrixCV$F1))$conf.int[1:2]
+  
+  icCBG = as.data.frame(matrix(nrow = 4, ncol=2))
+  names(icCBG) = c('Inf', 'Sup')
+  icCBG[1,] = icErroRate
+  icCBG[2,] = icPrecision
+  icCBG[3,] = icRecall
+  icCBG[4,] = icf1Score
+  
+  write.csv(icCBG, file = "Results/cbg_ic.csv")
+  
+  # Treinamento
+  #model_cbg_train = naiveBayes(x = train_df[-5], y = train_df$class)
+  cgb_predict = predict(bestModel, newdata = train_df[-5])
+  matriz_CBG = table(train_df$class, cgb_predict)
+  cbgMetrics_train = getMetrics(cgb_predict, train_df$class)
+  
+  # Teste
+  cgb_predict = predict(bestModel, newdata = test_df[-5])
+  matriz_CBG = table(test_df$class, cgb_predict)
+  cbgMetrics = getMetrics(cgb_predict, test_df$class)
+  
+  # IC para teste
+  resultIC = as.data.frame(matrix(ncol=4, nrow=3))
+  names(resultIC) = c('ErroRate', 'Precision', 'recall', 'F1')
+  ##rownames(resultIC) = c('Métrica', 'Sup.', 'Inf.')
+  resultIC$ErroRate[1] = cbgMetrics[1]
+  resultIC$ErroRate[2] = cbgMetrics$ErroRate - (2.262*sdErroRateresult)/sqrt(10)
+  resultIC$ErroRate[3] = cbgMetrics$ErroRate + (2.262*sdErroRateresult)/sqrt(10)
+  resultIC$Precision[1] = cbgMetrics[2]
+  resultIC$Precision[2] = cbgMetrics$Precision - (2.262*sdPrecision)/sqrt(10)
+  resultIC$Precision[3] = cbgMetrics$Precision + (2.262*sdPrecision)/sqrt(10)
+  resultIC$recall[1] = cbgMetrics[3]
+  resultIC$recall[2] = cbgMetrics$recall - (2.262*sdRecall)/sqrt(10)
+  resultIC$recall[3] = cbgMetrics$recall + (2.262*sdRecall)/sqrt(10)
+  resultIC$F1[1] = cbgMetrics[4]
+  resultIC$F1[2] = cbgMetrics$F1 - (2.262*sdRecall)/sqrt(10)
+  resultIC$F1[3] = cbgMetrics$recall + (2.262*sdRecall)/sqrt(10)
+  
+  if(exportResults == T){
+    write.csv(cbgMetrics, file = "Results/metrics_cbg.csv")
+    #write.csv(resultIC, file = "Results/cbg_resultIC.csv")
+  }
+  result_df = as.data.frame(matrix(nrow = length(test_df[[1]]), ncol=2))
+  names(result_df) = c('Target', 'CBG')
+  result_df$Target = test_df$class
+  result_df$CBG = cgb_predict
+  
+  return(list('Model'= bestModel,
+              'Metrics'= cbgMetrics,
+              'Results'= result_df
+  )
+  )
+}
+
+# M2 - Classificador bayesiano - KNN
 getKNN = function(train, valid, test, exportResults = F){
   #train = dataNormTrain; valid = dataNormValid; test = dataNormTest
   
@@ -72,6 +172,76 @@ getKNN = function(train, valid, test, exportResults = F){
               'Results'= result_df)
   )
 }
+
+# M2_cv - Classificador bayesiano - KNN com CV
+getKNN_cv = function(train_df, valid_df, test_df, exportResults = F){
+  #train_df = dataNormTrain; valid_df = dataNormValid; test_df = dataNormTest
+  
+  foldIndex = cvFolds(length(train_df$vwti), K = 10, R = 1)
+  resultMatrixCV = as.data.frame(matrix(ncol=4, nrow=10))
+  names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
+  
+  bestModelIndex = 1; bestModelAcc = 100; bestModel = NULL
+  for(i in 1:10){#i=1
+    train = train_df[foldIndex$subsets[foldIndex$which != i], ] #Set the training set
+    validation = train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
+
+    previsoes = NULL; metricFI = NULL
+    maxF1 = 0; maxI = NULL
+    for(j in 1:20){#j=50
+      set.seed(1)
+      previsoes = knn(train = train[-5], 
+                      test = validation[-5],
+                      cl = train$class,
+                      k = j)
+      
+      metricFI[j] = getMetrics(previsoes, validation$class)$F1 
+      
+      if(metricFI[j] > maxF1){
+        maxF1 = metricFI[j] 
+        maxI = j
+      }
+
+    knn_Predict = knn(train = train[-5], 
+                    test = validation[-5],
+                    cl = train$class,
+                    k = maxI)
+    
+    knnMetrics = getMetrics(knn_Predict, validation$class)
+    resultMatrixCV[i,] = knnMetrics
+    
+    #View(resultMatrixCV)
+    if(knnMetrics[1] < bestModelAcc){
+      bestModelAcc = knnMetrics[1]
+      bestModelIndex = i
+      }
+    }
+}
+
+  knnPredictTest = knn(train = train_df[-5], 
+                       test = test_df[-5],
+                       cl = train_df$class,
+                       k = maxI)
+  
+  knnMetricsTest = getMetrics(knnPredictTest, test_df$class)
+
+
+  if(exportResults == T){
+    write.csv(knnMetricsTest, file = "Results/knn_metrics.csv")
+  }
+  
+  result_df = as.data.frame(matrix(nrow = length(test_df[[1]]), ncol=2))
+  names(result_df) = c('Target', 'KNN')
+  result_df$Target = test_df$class
+  result_df$KNN = knnPredictTest
+  
+  return(list('K'= maxI,
+              'Metrics'= knnMetrics,
+              'Results'= result_df)
+  )
+}
+
+# M3 - CBG baseado em Janela de Parzen (CBG-JP) 
 
 # M4 - Regressão Logística (RL)
 getRL = function(train, test, exportResults = F){
@@ -140,7 +310,7 @@ getLRR= function(train, valid, test, exportResults = F){
                    family = "binomial",
                    type.measure = "deviance", 
                    nfolds = 10,
-                   alpha = 0, #lasso
+                   alpha = 0.5, #lasso
                    parallel = F)
   
   

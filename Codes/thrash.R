@@ -172,11 +172,11 @@ h <- h_tilde * sqrt(mu2_K_Epa)
 curve(K_Epa(x, h = h_tilde), from = -3, to = 3, col = 2)
 lines(density(0, kernel = "epanechnikov", bw = h))
 
-zero_X = data[1:762, 1:4]
-zero_y = data[1:762, 5]
+zero_X = dataNorm[1:762, 1:4]
+zero_y = dataNorm[1:762, 5]
 
-hum_X = data[763:1372, 1:4]
-hum_y = data[763:1372, 5]
+hum_X = dataNorm[763:1372, 1:4]
+hum_y = dataNorm[763:1372, 5]
 
 H <- diag(c(0.5, 0.5, 0.5, 0.5))
 kde_zero <- ks::kde(x = zero_X, H = H, binned = F)

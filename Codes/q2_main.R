@@ -1,4 +1,4 @@
-#Title: Repeated K-Fold CV to glass classification
+#Title: Repeated K-Fold CV to classification
 #Author: Jair Paulino
 #Date: 2021/02/15
 
@@ -21,11 +21,6 @@ library(reshape2)  #dados
 library(ks)        #Parzen
 library(klaR)
 
-#library(reticulate)
-#library(kdensity)
-#library(ks)        
-#library(Compositional)
-
 # Importar funcoes implementadas
 source("Codes/auxiliar.R")
 source("Codes/modelsAM.R")
@@ -35,24 +30,42 @@ source("Codes/modelsAM.R")
 # Importar dados
 data = read.csv("Data/data_banknote_authentication.csv", sep = ";")
 data$class = factor(data$class, levels = c(0, 1))
-#head(data); View(data)
-
-# Normalizar dados
-dataNorm = as.data.frame(sapply(data[,1:4], FUN = normalize_2))
-dataNorm$class = data$class
+#head(data); View(data); str(data)
 
 # Separar em conjunto de treinamento, validacao e teste
 set.seed(123) 
-sample = sample.split(dataNorm$vwti, SplitRatio = 0.8)
-dataNormTrain = subset(dataNorm, sample == T)
-dataNormTest = subset(dataNorm, sample == F)
-# dataNormTrain %>% count(class)
-# dataNormTest %>% count(class)
+sample = sample.split(data$vwti, SplitRatio = 0.8)
+dataTrain = subset(data, sample == T)
+dataTest = subset(data, sample == F)
+dataTrain %>% count(class) #str(dataTrain)
+dataTest %>% count(class)  #str(dataTest)
 
-set.seed(123) 
-sample_val = sample.split(dataNormTrain$vwti, SplitRatio = 0.2)
-dataNormValid = subset(dataNormTrain, sample_val == T)
-#dataNormValid %>% count(class)
+# Normalizar dados
+#dataNormTrain = as.data.frame(sapply(data[,1:4], FUN = normalize_minMax, max()))
+#dataNorm$class = data$class
+
+# Normalizar conjunto de treinamento
+dataNormTrain = as.data.frame(matrix(ncol=5, nrow=length(dataTrain$vwti)))
+names(dataNormTrain) = names(dataTrain)
+for (i in 1:4){#i=1
+  dataNormTrain[,i] = normalize_minMax(dataTrain[,i], 
+                                       max = max(dataTrain[,i]),
+                                       min = min(dataTrain[,i]))
+} 
+dataNormTrain$class = dataTrain$class #View(dataNormTrain)
+#class(dataNormTrain)
+
+# Normalizar conjunto de teste
+dataNormTest = as.data.frame(matrix(ncol=5, nrow=length(dataTest$vwti)))
+names(dataNormTest) = names(dataTest)
+for (i in 1:4) {
+  dataNormTest[,i] = normalize_minMax(dataTest[,i],
+                                      max = max(dataTrain[,i]),
+                                      min = min(dataTrain[,i]))
+}
+dataNormTest$class = dataTest$class #View(dataNormTest)
+#class(dataNormTest)
+
 
 # FASE 2 - Modelagem ----
 # M1 - Classificador bayesiano gaussiano (CBG)
@@ -66,7 +79,6 @@ modelCGB$Results
 
 # M2 - CBG baseado em K-vizinhos (CBG-kNN)
 modelKNN = getKNN_cv(train_df = dataNormTrain,
-                     valid_df = dataNormValid,
                      test_df = dataNormTest,
                      exportResults = T)
 # Resultados KNN 
@@ -76,33 +88,42 @@ modelKNN$Results
 
 # M3 - CBG baseado em Janela de Parzen (CBG-JP)
 
+modelParzen = getParzen_cv(train_df = dataNormTrain,
+                           test_df = dataNormTest,
+                           exportResults = T)
+# Resultados RL 
+modelParzen$h
+modelParzen$Metrics
+modelParzen$Results
+
 # M4 - Regressão Logística (RL)
-modelLR = getRL(train = dataNormTrain,
-                  test = dataNormTest,
-                  exportResults = T)
-# Resultados KNN 
+modelLR = getRL_cv(train = dataNormTrain,
+                   test = dataNormTest,
+                   exportResults = T)
+
+# Resultados RL 
 modelLR$Model
 modelLR$Metrics
 modelLR$Results
 
 # M5 - Regressão logistica com Regularizacao (RLR) -
-modelLRR = getLRR(train = dataNormTrain,
-                  valid = dataNormValid,
-                  test = dataNormTest,
-                  exportResults = T)
+modelRLR = getRLR_cv(train = dataNormTrain,
+                     test = dataNormTest,
+                     exportResults = T)
 # Resultados KNN 
-modelLRR$Model
-modelLRR$Metrics
-modelLRR$Results
+modelRLR$Model
+modelRLR$Metrics
+modelRLR$Results
 
 # M6 - Ensemble com regra do voto majoritario (EVM) 
-classResult = data.frame(matrix(ncol=5, nrow=length(dataNormTest$class)))
-colnames(classResult) = c('Target','CBG', 'KNN', 'LR', 'LRR')
+classResult = data.frame(matrix(ncol=6, nrow=length(dataNormTest$class)))
+colnames(classResult) = c('Target','CBG', 'KNN', 'Parzen', 'LR', 'RLR')
 classResult$Target = dataNormTest$class
 classResult$CBG = modelCGB$Results[,2]
 classResult$KNN = modelKNN$Results[,2]
+classResult$Parzen = modelParzen$Results
 classResult$LR = modelLR$Results[,2]
-classResult$LRR = modelLRR$Results[,2]
+classResult$RLR = modelRLR$Results[,2]
 #View(classResult)
 
 modelEVM = getEVM(classResult, exportResults = T)
@@ -110,22 +131,22 @@ modelEVM$Metrics
 modelEVM$Results
 
 # FASE 3 - Analise dos resultados ----
-metricTable = data.frame(matrix(ncol=4, nrow=5))
+metricTable = data.frame(matrix(ncol=4, nrow=6))
 colnames(metricTable) = c('ErroRate', 'Precision', 'recall', 'F1')
-rownames(metricTable) = c('CBG', 'KNN', 'LR', 'LRR', 'EVM')
+rownames(metricTable) = c('CBG', 'KNN', 'Parzen', 'LR', 'LRR', 'EVM')
 metricTable[1,1:4] = modelCGB$Metrics
 metricTable[2,1:4] = modelKNN$Metrics
-metricTable[3,1:4] = modelLR$Metrics
-metricTable[4,1:4] = modelLRR$Metrics
-metricTable[5,1:4] = modelEVM$Metrics
+metricTable[3,1:4] = modelParzen$Metrics
+metricTable[4,1:4] = modelLR$Metrics
+metricTable[5,1:4] = modelRLR$Metrics
+metricTable[6,1:4] = modelEVM$Metrics
 View(metricTable)
 
 write.csv(metricTable, file = "Results/metricTable.csv")
 
 metricTable$ID = seq.int(nrow(metricTable))
 myData = melt(metricTable, id.vars = "ID")
-friedman.test(myData$value, myData$variable, myData$ID)
+fTeste = friedman.test(myData$value, myData$variable, myData$ID)
+fTeste
+write.csv(c(fTeste$statistic, fTeste$p.value), file = "Results/fTeste.txt")
 
-# Finalizar Parzer (em R)
-# Calcular tempo de processamento para cada modelo
-# Revisar Friedman test

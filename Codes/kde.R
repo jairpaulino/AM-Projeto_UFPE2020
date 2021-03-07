@@ -2,20 +2,6 @@ library(modeest)
 library(ks)
 x <- rlnorm(10000, meanlog = 3.4, sdlog = 0.2) 
 
-## True mode 
-lnormMode(meanlog = 3.4, sdlog = 0.2) 
-
-## Estimate of the mode 
-mlv(x, method = "parzen", kernel = "gaussian", bw = 0.3, par = shorth(x)) 
-
-set.seed(8192)
-x <- c(rnorm.mixt(n=100, mus=1), rnorm.mixt(n=100, mus=-1))
-x.gr <- rep(c(1,2), times=c(100,100))
-y <- c(rnorm.mixt(n=100, mus=1), rnorm.mixt(n=100, mus=-1))
-y.gr <- rep(c(1,2), times=c(100,100))
-kda.gr <- kda(x, x.gr)
-y.gr.est <- predict(kda.gr, x=y)
-compare(y.gr, y.gr.est)
 
 set.seed(123)
 # X <- dataNormTrain[c(-5)]
@@ -76,26 +62,16 @@ ir <- dataNormValid[,1:4]
 ir.gr <- dataNormValid[,5]
 kda.fhat <- kda(x=ir, x.group=ir.gr)
 
-## positive data example
-fhat <- kde(x=X)
-
-## univariate example
-fhat <- kde(x=X[,1])
-plot(fhat, cont=50, col.cont="blue", cont.lwd=2, xlab="vwti")
-
-## bivariate example
-fhat <- kde(x=X[,1:2])
-plot(fhat, display="filled.contour", cont=seq(10,90,by=10))
-plot(fhat, display="persp", thin=3, border=1, col="white")
-
-## trivariate example
-fhat <- kde(x=X[,1:3])
-plot(fhat, drawpoints=TRUE)
-
 ## 4 example
-fhat <- kde(x=X[,1:4])
-plot(fhat, drawpoints=TRUE)
+fhat <- kde(x=dataNormValid[,1:4])
+#plot(fhat, drawpoints=TRUE)
 Y.gr.est <- predict(fhat, x = dataNormTest[c(-5)])
+Y.gr.est
+
+
+f_data = 762+610
+f_0 = 762/f_data
+f_1 = 610/f_data
 
 zero_X = dataNorm[1:762, 1:4]
 zero_y = dataNorm[1:762, 5]
@@ -103,13 +79,98 @@ zero_y = dataNorm[1:762, 5]
 hum_X = dataNorm[763:1372, 1:4]
 hum_y = dataNorm[763:1372, 5]
 
-H <- diag(c(0.75, 0.75, 0.75, 0.75))
+h = 0.1
+H <- diag(c(h, h, h, h))
 
 zeroModel = kde(x=zero_X[,1:4], H = H)
+zeroModel_prob = zeroModel$estimate*f_0
+
 humModel = kde(x=hum_X[,1:4], H = H)
+humModel_prob = humModel*f_1
+
+length(weights)
 
 #1, 100, 763, 1000
-predict(zeroModel, x=dataNorm[1000,1:4])
-predict(humModel, x=dataNorm[1000,1:4])
 
+
+ParzenClf = NULL
+
+for(i in 1:length(dataNorm$class)){
+  prob_0 = predict(zeroModel, x = dataNorm[i,1:4])
+  prob_ap_0 = prob_0*f_0
+  prob_1 = predict(humModel, x = dataNorm[i,1:4])
+  prob_ap_1 = prob_1*f_1
+  
+  if(prob_0 > prob_1){
+    ParzenClf[i] = 0
+  }else{
+    ParzenClf[i] = 1
+  }  
+}
+
+getMetrics(ParzenClf, dataNorm$class)
+
+
+################
+
+
+
+count_0 = sum(dataNormTrain[,5] == 1)
+count_1 = sum(dataNormTrain[,5] == 0)
+
+count_total = count_0+count_1
+f_0 = count_0/f_data
+f_1 = count_1/f_data
+
+sample = dataNormTrain[,5] == 0
+data_0 = subset(dataNormTrain, sample == T)
+data_1 = subset(dataNormTrain, sample == F)
+
+zero_X = data_0[, 1:4]
+zero_y = data_0[, 5]
+
+hum_X = data_1[, 1:4]
+hum_y = data_1[, 5]
+
+h = 0.01
+H = diag(c(h, h, h, h))
+
+zeroModel = kde(x=zero_X[,1:4], H = H)
+#zeroModel_prob = zeroModel$estimate*f_0
+
+humModel = kde(x=hum_X[,1:4], H = H)
+#humModel_prob = humModel*f_1
+
+ParzenClf = NULL
+
+for(i in 1:length(dataNormTrain$class)){#i=1
+  prob_0 = predict(zeroModel, x = dataNormTrain[i, 1:4])
+  prob_ap_0 = prob_0*f_0
+  prob_1 = predict(humModel, x = dataNormTrain[i, 1:4])
+  prob_ap_1 = prob_1*f_1
+  
+  if(prob_0 > prob_1){
+    ParzenClf_train[i] = 0
+  }else{
+    ParzenClf_train[i] = 1
+  }  
+  
+}
+
+getMetrics(ParzenClf_train, dataNorm$class)
+parzenClf_test = NULL
+for(i in 1:length(dataNormTest$class)){#i=1
+  prob_0 = predict(zeroModel, x = dataNormTest[i, 1:4])
+  prob_ap_0 = prob_0*f_0
+  prob_1 = predict(humModel, x = dataNormTest[i, 1:4])
+  prob_ap_1 = prob_1*f_1
+  
+  if(prob_0 > prob_1){
+    parzenClf_test[i] = 0
+  }else{
+    parzenClf_test[i] = 1
+  }  
+}
+
+getMetrics(parzenClf_test, dataNormTest$class)
 

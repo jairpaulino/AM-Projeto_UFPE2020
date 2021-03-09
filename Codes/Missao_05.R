@@ -1,12 +1,10 @@
-
 #rm(list=ls())
 
 # Libraries
-library(BBmisc)  #normalize
+#library(BBmisc)  #normalize
 library(caTools) #split
 library(e1071)   #svm
 library(caret)   #K-fold CV
-
 
 data = read.table('C:/Users/jairp/Desktop/glass.data', sep=',')
 names(data) = c('Id', 'RI', 'Na', 'Mg', 'Al', 'Si', 'K', 'Ca', 'Ba', 'Fe', 'Class')
@@ -15,7 +13,8 @@ names(data) = c('Id', 'RI', 'Na', 'Mg', 'Al', 'Si', 'K', 'Ca', 'Ba', 'Fe', 'Clas
 data$Class = as.factor(data$Class) 
 
 # normalize
-data[c(2:10)] = normalize(data[c(2:10)], method = "range", 
+data[c(2:10)] = normalize(data[c(2:10)], 
+                          method = "range", 
                  range = c(-1, 1), margin = 2)
 
 data = data[c(2:11)] #View(data)

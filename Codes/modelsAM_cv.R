@@ -1,32 +1,39 @@
 # M1_cv - Classificador bayesiano gaussiano (CBG) com CV
-getCBG_cv = function(train_df, test_df, exportResults = F){
-  #train_df = dataNormTrain; test_df = dataNormTest
+getCBG_cv = function(train_df, exportResults = F){
+  #train_df = dataNorm; View(train_df)
   
+  set.seed(2311)
   foldIndex = cvFolds(length(train_df$vwti), K = 10, R = 1)
   resultMatrixCV = as.data.frame(matrix(ncol=4, nrow=10))
   names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
   
-  bestModelIndex = 1; bestModelAcc = 100; bestModel = NULL
-  for(i in 1:10){#i=9
-    train <- train_df[foldIndex$subsets[foldIndex$which != i], ] #Set the training set
-    validation <- train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
-    
+  classAll = 1; bestModelAcc = 100
+  for(i in 1:10){#i=1
+    train = train_df[foldIndex$subsets[foldIndex$which != i], ] #Set the training set
+    validation = train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
+    #View(train); View(validation)
     model_cbg_cv = naiveBayes(x = train[-5], 
                               y = train$class)
     
-    cgb_predict = predict(model_cbg_cv, newdata = validation[-5])
-    cbgMetrics = getMetrics(cgb_predict, validation$class)
-    resultMatrixCV[i,] = cbgMetrics
+    cgb_predict = predict(model_cbg_cv, validation[c(1:4)])
+    cbgMetrics_cv = getMetrics(cgb_predict, validation$class)
+    resultMatrixCV[i,] = cbgMetrics_cv
     
+    # Classificacao para todos o conjunto de dados
+    cgb_predict_all = predict(model_cbg_cv, train_df[c(1:4)])
+    cbgMetrics_all = getMetrics(cgb_predict_all, train_df$class)
+
     #View(resultMatrixCV)
-    if(cbgMetrics[1] < bestModelAcc){
-      bestModelAcc = cbgMetrics[1]
-      bestModelIndex = i
-      bestModel = model_cbg_cv
+    if(cbgMetrics_cv[1] < bestModelAcc){
+      bestModelAcc = cbgMetrics_cv[1]
+      classAll = cgb_predict_all
+      #bestModel = model_cbg_cv
     }
   }
   
-  write.csv(resultMatrixCV, file = "Results/cbg_cv_metrics.csv")
+  if(exportResults == T){
+    write.csv(resultMatrixCV, file = "Results/cbg_cv_metrics.csv")
+  }
 
   # Calculo do IC
   meanErroRateresult = mean(resultMatrixCV$ErroRate)
@@ -45,64 +52,55 @@ getCBG_cv = function(train_df, test_df, exportResults = F){
   sdf1Score = sd(resultMatrixCV$F1)
   icf1Score = (t.test(resultMatrixCV$F1))$conf.int[1:2]
   
-  icCBG = as.data.frame(matrix(nrow = 4, ncol=2))
-  names(icCBG) = c('Inf', 'Sup')
-  icCBG[1,] = icErroRate
-  icCBG[2,] = icPrecision
-  icCBG[3,] = icRecall
-  icCBG[4,] = icf1Score
-  
-  write.csv(icCBG, file = "Results/cbg_ic.csv")
-  
-  # Treinamento
-  #model_cbg_train = naiveBayes(x = train_df[-5], y = train_df$class)
-  cgb_predict = predict(bestModel, newdata = train_df[-5])
-  matriz_CBG = table(train_df$class, cgb_predict)
-  cbgMetrics_train = getMetrics(cgb_predict, train_df$class)
-  
-  # Teste
-  cgb_predict = predict(bestModel, newdata = test_df[-5])
-  matriz_CBG = table(test_df$class, cgb_predict)
-  cbgMetrics = getMetrics(cgb_predict, test_df$class)
-  
-  # IC para teste
-  resultIC = as.data.frame(matrix(ncol=4, nrow=3))
-  names(resultIC) = c('ErroRate', 'Precision', 'recall', 'F1')
-  ##rownames(resultIC) = c('Métrica', 'Sup.', 'Inf.')
-  resultIC$ErroRate[1] = cbgMetrics[1]
-  resultIC$ErroRate[2] = cbgMetrics$ErroRate - (2.262*sdErroRateresult)/sqrt(10)
-  resultIC$ErroRate[3] = cbgMetrics$ErroRate + (2.262*sdErroRateresult)/sqrt(10)
-  resultIC$Precision[1] = cbgMetrics[2]
-  resultIC$Precision[2] = cbgMetrics$Precision - (2.262*sdPrecision)/sqrt(10)
-  resultIC$Precision[3] = cbgMetrics$Precision + (2.262*sdPrecision)/sqrt(10)
-  resultIC$recall[1] = cbgMetrics[3]
-  resultIC$recall[2] = cbgMetrics$recall - (2.262*sdRecall)/sqrt(10)
-  resultIC$recall[3] = cbgMetrics$recall + (2.262*sdRecall)/sqrt(10)
-  resultIC$F1[1] = cbgMetrics[4]
-  resultIC$F1[2] = cbgMetrics$F1 - (2.262*sdRecall)/sqrt(10)
-  resultIC$F1[3] = cbgMetrics$recall + (2.262*sdRecall)/sqrt(10)
+  icCBG = as.data.frame(matrix(nrow = 4, ncol=3))
+  names(icCBG) = c('Mean', 'Inf', 'Sup')
+  rownames(icCBG) = c('ErroRate', 'Precision', 'Recall', 'F1')
+  icCBG[1,1] = meanErroRateresult
+  icCBG[2,1] = meanPrecision
+  icCBG[3,1] = meanRecall
+  icCBG[4,1] = meanf1Score
+  icCBG[1,2:3] = icErroRate
+  icCBG[2,2:3] = icPrecision
+  icCBG[3,2:3] = icRecall
+  icCBG[4,2:3] = icf1Score
   
   if(exportResults == T){
-    write.csv(cbgMetrics, file = "Results/cbg_metrics.csv")
-    #write.csv(resultIC, file = "Results/cbg_resultIC.csv")
+    write.csv(icCBG, file = "Results/cbg_ic.csv")
   }
   
-  result_df = as.data.frame(matrix(nrow = length(test_df[[1]]), ncol=2))
+  result_df = as.data.frame(matrix(nrow = length(train_df[[1]]), ncol=2))
   names(result_df) = c('Target', 'CBG')
-  result_df$Target = test_df$class
-  result_df$CBG = cgb_predict
+  result_df$Target = train_df$class
+  result_df$CBG = classAll
   
-  return(list('Model'= bestModel,
-              'Metrics'= cbgMetrics,
+  return(list('Metrics'= resultMatrixCV,
+              'IC'= icCBG,
               'Results'= result_df
   )
   )
 }
 
 # M2_cv - Classificador bayesiano - KNN com CV
-getKNN_cv = function(train_df, test_df, exportResults = F){
-  #train_df = dataNormTrain; valid_df = dataNormValid; test_df = dataNormTest
+getKNN_cv = function(train_df, valid_df, exportResults = F){
+  #train_df = dataNorm; valid_df = dataValid; 
   
+  maxF1 = 0; maxk = NULL
+  for(k in 1:30){#k=2
+    set.seed(1)
+    previsoes = knn(train = dataValid[-5], 
+                    test = dataValid[-5],
+                    cl = dataValid$class,
+                    k = k)
+    
+    metricFI = getMetrics(previsoes, dataValid$class)$F1 
+    
+    if(metricFI > maxF1){
+      maxF1 = metricFI
+      maxk = k
+    }
+  }
+  
+  set.seed(2311)
   foldIndex = cvFolds(length(train_df$vwti), K = 10, R = 1)
   resultMatrixCV = as.data.frame(matrix(ncol=4, nrow=10))
   names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
@@ -110,46 +108,34 @@ getKNN_cv = function(train_df, test_df, exportResults = F){
   bestModelIndex = 1; bestModelAcc = 100; bestModel = NULL
   for(i in 1:10){#i=1
     train = train_df[foldIndex$subsets[foldIndex$which != i], ] #Set the training set
-    validation = train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
+    test = train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
 
-    k = 1
-    previsoes = NULL; metricFI = NULL
-    maxF1 = 0; maxI = NULL
-    
-    for(j in k:30){#j=50
-      set.seed(1)
-      previsoes = knn(train = train[-5], 
-                      test = validation[-5],
-                      cl = train$class,
-                      k = j)
-      
-      
-      resultMatrixCV[i,] = getMetrics(previsoes, validation$class)
-      write.csv(resultMatrixCV, file = "Results/knn_cv_metrics.csv")
-      
-      metricFI[j] = getMetrics(previsoes, validation$class)$F1 
-
-      if(metricFI[j] > maxF1){
-        maxF1 = metricFI[j] 
-        maxI = j
-      }
-
-      knn_Predict = knn(train = train[-5], 
-                    test = validation[-5],
+    knn_Predict = knn(train = train[-5], 
+                    test = test[-5],
                     cl = train$class,
-                    k = maxI)
+                    k = maxk)
     
-    knnMetrics = getMetrics(knn_Predict, validation$class)
+    resultMatrixCV[i,] = getMetrics(knn_Predict, test$class)
+
+    knnMetrics = getMetrics(knn_Predict, test$class)
     resultMatrixCV[i,] = knnMetrics
     
     #View(resultMatrixCV)
-    if(knnMetrics[1] < bestModelAcc){
-      bestModelAcc = knnMetrics[1]
-      bestModelIndex = i
-      }
-    }
+    # if(knnMetrics[1] < bestModelAcc){
+    #   bestModelAcc = knnMetrics[1]
+    #   bestModelIndex = i
+    #   }
   }
   
+  if(exportResults == T){
+    write.csv(resultMatrixCV, file = "Results/knn_cv_metrics.csv")
+  }
+  
+  classAll = knn(train = train_df[-5], 
+                    test = train_df[-5],
+                    cl = train_df$class,
+                    k = maxk)
+
   # Calculo do IC
   meanErroRateresult = mean(resultMatrixCV$ErroRate)
   sdErroRateresult = sd(resultMatrixCV$ErroRate)
@@ -167,67 +153,102 @@ getKNN_cv = function(train_df, test_df, exportResults = F){
   sdf1Score = sd(resultMatrixCV$F1)
   icf1Score = (t.test(resultMatrixCV$F1))$conf.int[1:2]
   
-  icKnn = as.data.frame(matrix(nrow = 4, ncol=2))
-  names(icKnn) = c('Inf', 'Sup')
-  icKnn[1,] = icErroRate
-  icKnn[2,] = icPrecision
-  icKnn[3,] = 1#icRecall
-  icKnn[4,] = icf1Score
+  icKnn = as.data.frame(matrix(nrow = 4, ncol=3))
+  names(icKnn) = c('Mean', 'Inf', 'Sup')
+  rownames(icKnn) = c('ErroRate', 'Precision', 'Recall', 'F1')
+  icKnn[1,1] = meanErroRateresult
+  icKnn[2,1] = meanPrecision
+  icKnn[3,1] = meanRecall
+  icKnn[4,1] = meanf1Score
+  icKnn[1,2:3] = icErroRate
+  icKnn[2,2:3] = icPrecision
+  #icKnn[3,2:3] = icRecall
+  icKnn[4,2:3] = icf1Score
   
-  write.csv(icKnn, file = "Results/knn_ic.csv")
-  
-  # Treinamento
-  knnPredictTest = knn(train = train_df[-5], 
-                       test = test_df[-5],
-                       cl = train_df$class,
-                       k = maxI)
- 
-  knnMetricsTest = getMetrics(knnPredictTest, test_df$class)
-
   if(exportResults == T){
-    write.csv(knnMetricsTest, file = "Results/knn_metrics.csv")
+    write.csv(icKnn, file = "Results/knn_ic.csv")
   }
   
-  # IC para teste
-  resultIC = as.data.frame(matrix(ncol=4, nrow=3))
-  names(resultIC) = c('ErroRate', 'Precision', 'recall', 'F1')
-  ##rownames(resultIC) = c('Métrica', 'Sup.', 'Inf.')
-  resultIC$ErroRate[1] = knnMetricsTest[1]
-  resultIC$ErroRate[2] = knnMetrics$ErroRate - (2.262*sdErroRateresult)/sqrt(10)
-  resultIC$ErroRate[3] = knnMetrics$ErroRate + (2.262*sdErroRateresult)/sqrt(10)
-  resultIC$Precision[1] = knnMetricsTest[2]
-  resultIC$Precision[2] = knnMetrics$Precision - (2.262*sdPrecision)/sqrt(10)
-  resultIC$Precision[3] = knnMetrics$Precision + (2.262*sdPrecision)/sqrt(10)
-  resultIC$recall[1] = knnMetricsTest[3]
-  resultIC$recall[2] = knnMetrics$recall - (2.262*sdRecall)/sqrt(10)
-  resultIC$recall[3] = knnMetrics$recall + (2.262*sdRecall)/sqrt(10)
-  resultIC$F1[1] = knnMetricsTest[4]
-  resultIC$F1[2] = knnMetrics$F1 - (2.262*sdRecall)/sqrt(10)
-  resultIC$F1[3] = knnMetrics$recall + (2.262*sdRecall)/sqrt(10)
-  
-  result_df = as.data.frame(matrix(nrow = length(test_df[[1]]), ncol=2))
+  result_df = as.data.frame(matrix(nrow = length(train_df[[1]]), ncol=2))
   names(result_df) = c('Target', 'KNN')
-  result_df$Target = test_df$class
-  result_df$KNN = knnPredictTest
+  result_df$Target = train_df$class
+  result_df$KNN = classAll
   
-  return(list('K'= maxI,
-              'Metrics'= knnMetrics,
-              'Results'= result_df)
+  return(list('Metrics'= resultMatrixCV,
+              'IC'= icKnn,
+              'Results'= result_df
+         )
   )
+  
 }
 
 # M3 - CBG baseado em Janela de Parzen (CBG-JP) 
-getParzen_cv = function(train_df, test_df, exportResults = T ) {
-  #train_df = dataNormTrain; test_df = dataNormTest
+getParzen_cv = function(train_df, valid_df, exportResults = T ) {
+  #train_df = dataNorm; valid_df = dataValid
   
+  # Validacao para encontrar o h
+  count_0 = sum(valid_df[,5] == 1)
+  count_1 = sum(valid_df[,5] == 0)
+  
+  count_total = count_0+count_1
+  f_0 = count_0/count_total
+  f_1 = count_1/count_total
+  
+  sample = valid_df[,5] == 0
+  data_0 = subset(valid_df, sample == T)
+  data_1 = subset(valid_df, sample == F)
+  
+  zero_X = data_0[, 1:4]
+  zero_y = data_0[, 5]
+  
+  hum_X = data_1[, 1:4]
+  hum_y = data_1[, 5]
+  
+  h = c(0.01, 0.1, 0.5, 1, 1.25); 
+  bestH = 0; bestMetric = 0
+  for (i in 1:5){#i=1
+    
+    H <- diag(c(h[i], h[i], h[i], h[i]))
+    zeroModel = kde(x=zero_X[,1:4], H = H)
+    
+    humModel = kde(x=hum_X[,1:4], H = H)
+    
+    ParzenClf_valid = NULL
+    for(k in 1:length(valid_df$class)){#k=1
+      
+      prob_0 = predict(zeroModel, x = valid_df[k, 1:4])
+      prob_ap_0 = prob_0*f_0
+      
+      prob_1 = predict(humModel, x = valid_df[k, 1:4])
+      prob_ap_1 = prob_1*f_1
+      
+      if(prob_0 > prob_1){
+        ParzenClf_valid[k] = 0
+      }else{
+        ParzenClf_valid[k] = 1
+      }  
+    }
+    
+    metricValid = getMetrics(ParzenClf_valid, valid_df$class)
+    
+    print(paste('Iter.:', i, h[i], metricValid[4], sep = ' '))
+    
+    if(metricValid[4] > bestMetric){
+      bestMetric = metricValid[4] 
+      bestH = i
+    }
+  }
+  
+  # Validacao cruzada 10-folds
   foldIndex = cvFolds(length(train_df$vwti), K = 10, R = 1)
-  resultMatrixCV = as.data.frame(matrix(ncol=5, nrow=10))
-  names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1', 'h')
+  resultMatrixCV = as.data.frame(matrix(ncol=4, nrow=10))
+  names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
   
   bestModelIndex = 1; bestModelAcc = 100; bestModel = NULL
   for(i in 1:10){#i=3
+    
     train = train_df[foldIndex$subsets[foldIndex$which != i], ] #Set the training set
-    validation = train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
+    test = train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
     
     count_0 = sum(train[,5] == 1)
     count_1 = sum(train[,5] == 0)
@@ -246,46 +267,39 @@ getParzen_cv = function(train_df, test_df, exportResults = T ) {
     hum_X = data_1[, 1:4]
     hum_y = data_1[, 5]
     
-    h = c(0.01, 0.1, 0.5, 1, 1.25); 
-    bestH = 0; bestMetric = 0
-    for (j in 1:5){#j=1
+    H = diag(c(h[bestH], h[bestH], h[bestH], h[bestH]))
+    zeroModel = kde(x=zero_X[,1:4], H = H)
+    humModel = kde(x=hum_X[,1:4], H = H)
       
-      H <- diag(c(h[j], h[j], h[j], h[j]))
-      zeroModel = kde(x=zero_X[,1:4], H = H)
-      
-      humModel = kde(x=hum_X[,1:4], H = H)
-      
-      ParzenClf_valid = NULL
-      for(k in 1:length(validation$class)){#k=1
+    ParzenClf_valid = NULL
+    for(k in 1:length(test$class)){#k=1
         
-        prob_0 = predict(zeroModel, x = validation[k, 1:4])
-        prob_ap_0 = prob_0*f_0
+      prob_0 = predict(zeroModel, x = test[k, 1:4])
+      prob_ap_0 = prob_0*f_0
         
-        prob_1 = predict(humModel, x = validation[k, 1:4])
-        prob_ap_1 = prob_1*f_1
+      prob_1 = predict(humModel, x = test[k, 1:4])
+      prob_ap_1 = prob_1*f_1
         
-        if(prob_0 > prob_1){
-          ParzenClf_valid[k] = 0
-        }else{
-          ParzenClf_valid[k] = 1
-        }  
-      }
-      
-      metricValid = getMetrics(ParzenClf_valid, validation$class)
-      
-      print(paste('Iter.:', i, j, h[j], metricValid[4], sep = ' '))
-      
-      if(metricValid[4] > bestMetric){
-        bestMetric = metricValid[4] 
-        bestH = j
-      }
+      if(prob_0 > prob_1){
+        ParzenClf_valid[k] = 0
+      }else{
+        ParzenClf_valid[k] = 1
+      }  
     }
     
-    resultMatrixCV[i,1:4] = metricValid
-    resultMatrixCV[i, 5] = h[bestH] 
+    metricValid = getMetrics(ParzenClf_valid, test$class)
+    resultMatrixCV[i, ] = metricValid
+    print(paste('Iter.:', i, metricValid[4], sep = ' '))
+      
+    # if(metricValid[4] > bestMetric){
+    #     bestMetric = metricValid[4] 
+    #     bestH = j
+    # }
   }
-  
-  write.csv(resultMatrixCV, file = "Results/parzen_cv.csv")
+    
+  if(exportResults == T){
+    write.csv(resultMatrixCV, file = "Results/parzen_cv_metrics.csv")
+  }
   
   # Calculo do IC
   meanErroRateresult = mean(resultMatrixCV$ErroRate)
@@ -304,14 +318,21 @@ getParzen_cv = function(train_df, test_df, exportResults = T ) {
   sdf1Score = sd(resultMatrixCV$F1)
   icf1Score = (t.test(resultMatrixCV$F1))$conf.int[1:2]
   
-  icParzen = as.data.frame(matrix(nrow = 4, ncol=2))
-  names(icParzen) = c('Inf', 'Sup')
-  icParzen[1,] = icErroRate
-  icParzen[2,] = icPrecision
-  icParzen[3,] = icRecall
-  icParzen[4,] = icf1Score
+  icParzen = as.data.frame(matrix(nrow = 4, ncol=3))
+  names(icParzen) = c('Mean', 'Inf', 'Sup')
+  rownames(icParzen) = c('ErroRate', 'Precision', 'Recall', 'F1')
+  icParzen[1,1] = meanErroRateresult
+  icParzen[2,1] = meanPrecision
+  icParzen[3,1] = meanRecall
+  icParzen[4,1] = meanf1Score
+  icParzen[1,2:3] = icErroRate
+  icParzen[2,2:3] = icPrecision
+  icParzen[3,2:3] = icRecall
+  icParzen[4,2:3] = icf1Score
   
-  write.csv(icParzen, file = "Results/parzen_ic.csv")
+  if(exportResults == T){
+    write.csv(icParzen, file = "Results/parzen_ic.csv")
+  }
   
   # Treinamento
   count_0_train = sum(train_df[,5] == 1)
@@ -331,13 +352,11 @@ getParzen_cv = function(train_df, test_df, exportResults = T ) {
   hum_X_train = data_1_train[, 1:4]
   hum_y_train = data_1_train[, 5]
   
-  bestFold = subset(resultMatrixCV, F1 == max(resultMatrixCV$F1))
-  bestH = bestFold$h
   H = diag(c(bestH, bestH, bestH, bestH))
   zeroModel = kde(x=zero_X_train[,1:4], H = H)
   humModel = kde(x=hum_X_train[,1:4], H = H)
   
-  parzenClf_train = NULL
+  classAll = NULL
   for(i in 1:length(train_df$class)){#i=1
     prob_0 = predict(zeroModel, x = train_df[i, 1:4])
     prob_ap_0 = prob_0*f_0
@@ -345,102 +364,68 @@ getParzen_cv = function(train_df, test_df, exportResults = T ) {
     prob_ap_1 = prob_1*f_1
     
     if(prob_0 > prob_1){
-      parzenClf_train[i] = 0
+      classAll[i] = 0
     }else{
-      parzenClf_train[i] = 1
+      classAll[i] = 1
     }  
   }
   
   #matriz_parzen = table(train_df$class, parzenClf_train)
-  parzenMetrics_train = getMetrics(parzenClf_train, train_df$class)
+  parzenMetrics_train = getMetrics(classAll, train_df$class)
   
-  # Teste
-  parzenClf_test = NULL
-  for(i in 1:length(test_df$class)){#i=1
-    prob_0 = predict(zeroModel, x = test_df[i, 1:4])
-    prob_ap_0 = prob_0*f_0
-    prob_1 = predict(humModel, x = test_df[i, 1:4])
-    prob_ap_1 = prob_1*f_1
-    
-    if(prob_0 > prob_1){
-      parzenClf_test[i] = 0
-    }else{
-      parzenClf_test[i] = 1
-    }  
-  }
-  
-  #matriz_parzen = table(test_df$class, parzenClf_test)
-  parzenMetrics_test = getMetrics(parzenClf_test, test_df$class)
-  
-  # IC para teste
-  resultIC = as.data.frame(matrix(ncol=4, nrow=3))
-  names(resultIC) = c('ErroRate', 'Precision', 'recall', 'F1')
-  ##rownames(resultIC) = c('Métrica', 'Sup.', 'Inf.')
-  resultIC$ErroRate[1] = parzenMetrics_test[1]
-  resultIC$ErroRate[2] = parzenMetrics_test$ErroRate - (2.262*sdErroRateresult)/sqrt(10)
-  resultIC$ErroRate[3] = parzenMetrics_test$ErroRate + (2.262*sdErroRateresult)/sqrt(10)
-  resultIC$Precision[1] = parzenMetrics_test[2]
-  resultIC$Precision[2] = parzenMetrics_test$Precision - (2.262*sdPrecision)/sqrt(10)
-  resultIC$Precision[3] = parzenMetrics_test$Precision + (2.262*sdPrecision)/sqrt(10)
-  resultIC$recall[1] = parzenMetrics_test[3]
-  resultIC$recall[2] = parzenMetrics_test$recall - (2.262*sdRecall)/sqrt(10)
-  resultIC$recall[3] = parzenMetrics_test$recall + (2.262*sdRecall)/sqrt(10)
-  resultIC$F1[1] = parzenMetrics_test[4]
-  resultIC$F1[2] = parzenMetrics_test$F1 - (2.262*sdRecall)/sqrt(10)
-  resultIC$F1[3] = parzenMetrics_test$recall + (2.262*sdRecall)/sqrt(10)
-  
-  if(exportResults == T){
-    write.csv(parzenMetrics_test, file = "Results/parzem_metrics.csv")
-    #write.csv(resultIC, file = "Results/cbg_resultIC.csv")
-  }
-  
-  result_df = as.data.frame(matrix(nrow = length(test_df[[1]]), ncol=2))
+  result_df = as.data.frame(matrix(nrow = length(train_df[[1]]), ncol=2))
   names(result_df) = c('Target', 'Parzen')
-  result_df$Target = test_df$class
-  result_df$Parzen = parzenClf_test
+  result_df$Target = train_df$class
+  result_df$Parzen = classAll
   
-  return(list('h'= bestH,
-              'Metrics'= parzenMetrics_test,
-              'Results'= result_df
-  )
-  )
-  
+  return(list('Metrics'= resultMatrixCV,
+              'IC'= icParzen,
+              'Results'= result_df,
+              'BestH' = h[bestH]
+              )
+         )
 }
 
 # M4 - Regressão Logística (RL)
-getRL_cv = function(train_df, test_df, exportResults = F){
-  #train_df = dataNormTrain; test_df = dataNormTest
+getRL_cv = function(train_df, exportResults = F){
+  #train_df = dataNorm; 
   
   foldIndex = cvFolds(length(train_df$vwti), K = 10, R = 1)
   resultMatrixCV = as.data.frame(matrix(ncol=4, nrow=10))
   names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
   
-  bestModelIndex = 1; bestModelAcc = 100; bestModel = NULL
+  bestModelIndex = 1; bestModelAcc = 100; classAll = NULL
+  
+  classAll = NULL
   for(i in 1:10){#i=1
-    train <- train_df[foldIndex$subsets[foldIndex$which != i], ] #Set the training set
-    validation <- train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
+    set.seed(2311)
+    train = train_df[foldIndex$subsets[foldIndex$which != i], ] #Set the training set
+    test = train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
+    #View(train); View(validation)
     
     model_lr_cv = glm(class ~ .,
                       data = train,
                       family = binomial(link = 'logit')
     )
     
-    lr_predict = predict(model_lr_cv, newdata = validation[-5])
     
+    lr_predict = predict(model_lr_cv, newdata = test[-5])
     lr_predict = ifelse(lr_predict < 0.5, 0, 1)
-    
-    lrMetrics = getMetrics(as.numeric(lr_predict), validation$class)
+    lrMetrics = getMetrics(as.numeric(lr_predict), test$class)
     resultMatrixCV[i,] = lrMetrics
     
-    #View(resultMatrixCV)
+    # Classificacao para todos o conjunto de dados
+    classAll_i = predict(model_lr_cv, train_df[c(1:4)])
+    
     if(lrMetrics[1] < bestModelAcc){
       bestModelAcc = lrMetrics[1]
-      bestModelIndex = i
-      bestModel = model_lr_cv
+      classAll = ifelse(classAll_i < 0.5, 0, 1)
     }
   }
   
-  write.csv(resultMatrixCV, file = "Results/rl_cv_metrics.csv")
+  if(exportResults == T){
+    write.csv(resultMatrixCV, file = "Results/lr_cv_metrics.csv")
+  }
   
   # Calculo do IC
   meanErroRateresult = mean(resultMatrixCV$ErroRate)
@@ -459,55 +444,29 @@ getRL_cv = function(train_df, test_df, exportResults = F){
   sdf1Score = sd(resultMatrixCV$F1)
   icf1Score = (t.test(resultMatrixCV$F1))$conf.int[1:2]
   
-  icLR = as.data.frame(matrix(nrow = 4, ncol=2))
-  names(icLR) = c('Inf', 'Sup')
-  icLR[1,] = icErroRate
-  icLR[2,] = icPrecision
-  icLR[3,] = icRecall
-  icLR[4,] = icf1Score
-  
-  write.csv(icLR, file = "Results/lr_ic.csv")
-  
-  # Treinamento
-  lr_predict_train = predict(bestModel, newdata = train_df[-5])
-  lr_predict_train = ifelse(lr_predict_train < 0.5, 0, 1)
-  matriz_lr = table(train_df$class, lr_predict_train)
-  lrMetrics_train = getMetrics(lr_predict_train, train_df$class)
-  
-  # Teste
-  lr_predict_test = predict(bestModel, newdata = test_df[-5])
-  lr_predict_test = ifelse(lr_predict_test < 0.5, 0, 1)
-  lrMetrics = getMetrics(lr_predict_test, test_df$class)
-  
-  # IC para teste
-  resultIC = as.data.frame(matrix(ncol=4, nrow=3))
-  names(resultIC) = c('ErroRate', 'Precision', 'recall', 'F1')
-  ##rownames(resultIC) = c('Métrica', 'Sup.', 'Inf.')
-  resultIC$ErroRate[1] = lrMetrics[1]
-  resultIC$ErroRate[2] = lrMetrics$ErroRate - (2.262*sdErroRateresult)/sqrt(10)
-  resultIC$ErroRate[3] = lrMetrics$ErroRate + (2.262*sdErroRateresult)/sqrt(10)
-  resultIC$Precision[1] = lrMetrics[2]
-  resultIC$Precision[2] = lrMetrics$Precision - (2.262*sdPrecision)/sqrt(10)
-  resultIC$Precision[3] = lrMetrics$Precision + (2.262*sdPrecision)/sqrt(10)
-  resultIC$recall[1] = lrMetrics[3]
-  resultIC$recall[2] = lrMetrics$recall - (2.262*sdRecall)/sqrt(10)
-  resultIC$recall[3] = lrMetrics$recall + (2.262*sdRecall)/sqrt(10)
-  resultIC$F1[1] = lrMetrics[4]
-  resultIC$F1[2] = lrMetrics$F1 - (2.262*sdRecall)/sqrt(10)
-  resultIC$F1[3] = lrMetrics$F1 + (2.262*sdRecall)/sqrt(10)
+  icLR = as.data.frame(matrix(nrow = 4, ncol=3))
+  names(icLR) = c('Mean', 'Inf', 'Sup')
+  rownames(icLR) = c('ErroRate', 'Precision', 'Recall', 'F1')
+  icLR[1,1] = meanErroRateresult
+  icLR[2,1] = meanPrecision
+  icLR[3,1] = meanRecall
+  icLR[4,1] = meanf1Score
+  icLR[1,2:3] = icErroRate
+  icLR[2,2:3] = icPrecision
+  icLR[3,2:3] = icRecall
+  icLR[4,2:3] = icf1Score
   
   if(exportResults == T){
-    write.csv(lrMetrics, file = "Results/rl_metrics.csv")
-    #write.csv(resultIC, file = "Results/cbg_resultIC.csv")
+    write.csv(icLR, file = "Results/lr_ic.csv")
   }
-  
-  result_df = as.data.frame(matrix(nrow = length(test_df[[1]]), ncol=2))
+
+  result_df = as.data.frame(matrix(nrow = length(train_df[[1]]), ncol=2))
   names(result_df) = c('Target', 'LR')
-  result_df$Target = test_df$class
-  result_df$LR = lr_predict_test
+  result_df$Target = train_df$class
+  result_df$LR = classAll
   
-  return(list('Model'= bestModel,
-              'Metrics'= lrMetrics,
+  return(list('Metrics' = resultMatrixCV,
+              'IC' = icLR,
               'Results'= result_df)
   )
 }

@@ -20,7 +20,7 @@ library(dplyr)     #dados
 library(reshape2)  #dados
 library(ks)        #Parzen
 library(klaR)
-library(cvTools)   #cv tools
+library(cvTools)  #cv tools
 
 # Importar funcoes implementadas
 source("Codes/auxiliar.R")
@@ -33,53 +33,86 @@ data = read.csv("Data/data_banknote_authentication.csv", sep = ";")
 data$class = factor(data$class, levels = c(0, 1))
 #head(data); View(data); str(data)
 
+# Separar em conjunto de treinamento, validacao e teste
+# set.seed(123) 
+# sample = sample.split(data$vwti, SplitRatio = 0.8)
+# dataTrain = subset(data, sample == T)
+# dataTest = subset(data, sample == F)
+# dataTrain %>% count(class) #str(dataTrain)
+# dataTest %>% count(class)  #str(dataTest)
+
 # Normalizar dados
 dataNorm = as.data.frame(sapply(data[,1:4], FUN = normalize_2))
 dataNorm$class = data$class
-#View(dataNorm)
+View(dataNorm)
 
-# Separar em conjunto de validacao (20%)
-set.seed(1123)
-sample = sample.split(data$vwti, SplitRatio = 0.8)
-dataValid = subset(data, sample == F)
-#dataValid %>% count(class)  
-#
+# dataNormTrain = as.data.frame(matrix(ncol=5, nrow=length(dataTrain$vwti)))
+# names(dataNormTrain) = names(dataTrain)
+# for (i in 1:4){#i=1
+#   dataNormTrain[,i] = normalize_minMax(dataTrain[,i], 
+#                                        max = max(dataTrain[,i]),
+#                                        min = min(dataTrain[,i]))
+# } 
+# dataNormTrain$class = dataTrain$class #View(dataNormTrain)
+# 
+# # Normalizar conjunto de treinamento
+# dataNormTrain = as.data.frame(matrix(ncol=5, nrow=length(dataTrain$vwti)))
+# names(dataNormTrain) = names(dataTrain)
+# for (i in 1:4){#i=1
+#   dataNormTrain[,i] = normalize_minMax(dataTrain[,i], 
+#                                        max = max(dataTrain[,i]),
+#                                        min = min(dataTrain[,i]))
+# } 
+# dataNormTrain$class = dataTrain$class #View(dataNormTrain)
+# #class(dataNormTrain)
+# 
+# # Normalizar conjunto de teste
+# dataNormTest = as.data.frame(matrix(ncol=5, nrow=length(dataTest$vwti)))
+# names(dataNormTest) = names(dataTest)
+# for (i in 1:4) {
+#   dataNormTest[,i] = normalize_minMax(dataTest[,i],
+#                                       max = max(dataTrain[,i]),
+#                                       min = min(dataTrain[,i]))
+# }
+# dataNormTest$class = dataTest$class #View(dataNormTest)
+# #class(dataNormTest)
+
 # FASE 2 - Modelagem ----
-#
 # M1 - Classificador bayesiano gaussiano (CBG)
-modelCGB = getCBG_cv(train_df = dataNorm,
-                     exportResults = TRUE)
+modelCGB = getCBG_cv(train = dataNorm,
+                     exportResults = T)
 # Resultados CBG 
 modelCGB$Metrics
 modelCGB$IC
 modelCGB$Results
 
 # M2 - CBG baseado em K-vizinhos (CBG-kNN)
-modelKNN = getKNN_cv(train_df = dataNorm, 
-                     valid_df = dataValid,
+modelKNN = getKNN_cv(train_df = dataNormTrain,
+                     test_df = dataNormTest,
                      exportResults = T)
 # Resultados KNN 
+modelKNN$K
 modelKNN$Metrics
-modelKNN$IC
 modelKNN$Results
 
 # M3 - CBG baseado em Janela de Parzen (CBG-JP)
-modelParzen = getParzen_cv(train_df = dataNorm, 
-                           valid_df = dataValid,
+
+modelParzen = getParzen_cv(train_df = dataNormTrain,
+                           test_df = dataNormTest,
                            exportResults = T)
 # Resultados RL 
-modelParzen$BestH
+modelParzen$h
 modelParzen$Metrics
-modelParzen$IC
 modelParzen$Results
 
 # M4 - Regressão Logística (RL)
-modelLR = getRL_cv(train = dataNorm,
+modelLR = getRL_cv(train = dataNormTrain,
+                   test = dataNormTest,
                    exportResults = T)
 
 # Resultados RL 
+modelLR$Model
 modelLR$Metrics
-modelLR$IC
 modelLR$Results
 
 # M5 - Regressão logistica com Regularizacao (RLR) -

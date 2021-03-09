@@ -472,44 +472,39 @@ getRL_cv = function(train_df, exportResults = F){
 }
 
 # M5 - Regressão logistica com Regularizacao (RLR) 
-getRLR_cv= function(train_df, test_df, exportResults = F){
-  #train_df = dataNormTrain; test_df = dataNormTest
+getRLR_cv= function(train_df, valid_df, exportResults = F){
+  #train_df = dataNorm; valid_df = dataValid
 
   train_df$x5 = (train_df$vwti)^2
   train_df$x6 = sqrt(train_df$swti) 
   train_df$x7 = log(train_df$cwti) 
   train_df$x8 = (train_df$ei)^(-1) 
   
-  # valid_df$x5 = (valid_df$vwti)^2
-  # valid_df$x6 = sqrt(valid_df$swti) 
-  # valid_df$x7 = log(valid_df$cwti) 
-  # valid_df$x8 = (valid_df$ei)^(-1) 
+  valid_df$x5 = (valid_df$vwti)^2
+  valid_df$x6 = sqrt(valid_df$swti)
+  valid_df$x7 = log(valid_df$cwti)
+  valid_df$x8 = (valid_df$ei)^(-1)
+ 
+  train_val_y = as.data.frame(valid_df[-5])
+  train_val_x = valid_df$class
   
-  test_df$x5 = (test_df$vwti)^2
-  test_df$x6 = sqrt(test_df$swti) 
-  test_df$x7 = log(test_df$cwti) 
-  test_df$x8 = (test_df$ei)^(-1) 
+  model_rlr_cv = cv.glmnet(x = as.matrix(train_val_y[c(-5)]),
+                           nfolds = 3,
+                           y = train_val_x,
+                           family = "binomial",
+                           type.measure = "class",
+                           alpha = 0
+  )
   
-  train_val_y = as.data.frame(train_df[-5])
-  train_val_x = train_df$class
-
   foldIndex = cvFolds(length(train_df$vwti), K = 10, R = 1)
   resultMatrixCV = as.data.frame(matrix(ncol=4, nrow=10))
   names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
   
-  bestModelIndex = 1; bestModelAcc = 100; bestModel = NULL
+  bestModelAcc = 100; classAll = NULL
   for(i in 1:10){#i=1
     train = train_df[foldIndex$subsets[foldIndex$which != i], ] #Set the training set
-    validation = train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
+    test = train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
 
-    model_rlr_cv = cv.glmnet(x = as.matrix(train[c(-5)]),
-                             nfolds = 3,
-                             y = train$class,
-                             family = "binomial",
-                             type.measure = "class",
-                             alpha = 0
-                             )
-    
     model_rlr = glmnet(x = as.matrix(train[(-5)]), 
                        y = train$class,
                        family = "binomial",
@@ -518,22 +513,108 @@ getRLR_cv= function(train_df, test_df, exportResults = F){
     
     
     rlr_predict = predict(model_rlr,
-                          newx = as.matrix(validation[(-5)]),
+                          newx = as.matrix(test[(-5)]),
                           type = "response")
     
     rlr_predict = ifelse(rlr_predict < 0.5, 0, 1)
-    rlrMetrics = getMetrics(as.numeric(rlr_predict), validation$class)
+    rlrMetrics = getMetrics(as.numeric(rlr_predict), test$class)
     resultMatrixCV[i,] = rlrMetrics
+    
+    # Classificacao para todos o conjunto de dados
+    classAll_i = predict(model_rlr, 
+                         newx = as.matrix(train_df[(-5)]),
+                         type = "response")
     
     #View(resultMatrixCV)
     if(rlrMetrics[1] < bestModelAcc){
       bestModelAcc = rlrMetrics[1]
-      bestModelIndex = i
-      bestModel = model_rlr_cv
+      classAll = ifelse(classAll_i < 0.5, 0, 1)
     }
   }
   
-  write.csv(resultMatrixCV, file = "Results/rlr_cv_metrics.csv")
+  if(exportResults == T){
+    write.csv(resultMatrixCV, file = "Results/rlr_cv_metrics.csv")
+  }
+  
+  # Calculo do IC
+  meanErroRateresult = mean(resultMatrixCV$ErroRate)
+  sdErroRateresult = sd(resultMatrixCV$ErroRate)
+  icErroRate = (t.test(resultMatrixCV$ErroRate))$conf.int[1:2]
+  
+  meanPrecision = mean(resultMatrixCV$Precision)
+  sdPrecision = sd(resultMatrixCV$Precision)
+  icPrecision = (t.test(resultMatrixCV$Precision))$conf.int[1:2]
+  
+  meanRecall = mean(resultMatrixCV$recall)
+  sdRecall = sd(resultMatrixCV$recall)
+  icRecall = (t.test(resultMatrixCV$recall))$conf.int[1:2]
+  
+  meanf1Score = mean(resultMatrixCV$F1)
+  sdf1Score = sd(resultMatrixCV$F1)
+  icf1Score = (t.test(resultMatrixCV$F1))$conf.int[1:2]
+
+  icRLR = as.data.frame(matrix(nrow = 4, ncol=3))
+  names(icRLR) = c('Mean', 'Inf', 'Sup')
+  rownames(icRLR) = c('ErroRate', 'Precision', 'Recall', 'F1')
+  icRLR[1,1] = meanErroRateresult
+  icRLR[2,1] = meanPrecision
+  icRLR[3,1] = meanRecall
+  icRLR[4,1] = meanf1Score
+  icRLR[1,2:3] = icErroRate
+  icRLR[2,2:3] = icPrecision
+  icRLR[3,2:3] = icRecall
+  icRLR[4,2:3] = icf1Score
+  
+  if(exportResults == T){
+    write.csv(icRLR, file = "Results/rlr_ic.csv")
+  }
+
+  result_df = as.data.frame(matrix(nrow = length(train_df[[1]]), ncol=2))
+  names(result_df) = c('Target', 'RLR')
+  result_df$Target = train_df$class
+  result_df$RLR = classAll
+  
+  return(list('Metrics' = resultMatrixCV,
+              'IC' = icRLR,
+              'Results'= result_df)
+  )
+  
+  
+}
+
+# M6 - Ensemble com regra do voto majoritario (EVM)
+getEVM = function(classResult, exportResults = F){
+  
+  set.seed(2311)
+  foldIndex = cvFolds(length(classResult$Class), K = 10, R = 1)
+  resultMatrixCV = as.data.frame(matrix(ncol=4, nrow=10))
+  names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
+  
+  classAll = 1
+  for(i in 1:10){#i=1
+    test = classResult[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
+    classResult_evm = as.matrix(test)
+    #View(classResult_evm)
+    
+    evmFold = NULL
+    for (j in 1:length(test$Class)){#j=2
+      nVote = sum(as.numeric(classResult_evm[j, 2:6]))
+      
+      if (nVote > 2){
+        evmFold[j] = 1
+      } else {
+        evmFold[j] = 0
+      }
+      
+    }#length(evmFold)
+    
+    evmMetrics_cv = getMetrics(evmFold, test$Class)
+    resultMatrixCV[i,] = evmMetrics_cv
+  }
+  
+  if(exportResults == T){
+    write.csv(resultMatrixCV, file = "Results/evm_metrics.csv")
+  }
   
   # Calculo do IC
   meanErroRateresult = mean(resultMatrixCV$ErroRate)
@@ -552,73 +633,27 @@ getRLR_cv= function(train_df, test_df, exportResults = F){
   sdf1Score = sd(resultMatrixCV$F1)
   icf1Score = (t.test(resultMatrixCV$F1))$conf.int[1:2]
   
-  icRLR = as.data.frame(matrix(nrow = 4, ncol=2))
-  names(icRLR) = c('Inf', 'Sup')
-  icRLR[1,] = icErroRate
-  icRLR[2,] = icPrecision
-  icRLR[3,] = icRecall
-  icRLR[4,] = icf1Score
-  
-  write.csv(icRLR, file = "Results/rlr_ic.csv")
-  
-  # Treinamento
-  rlr_predict_train = predict(model_rlr_cv,
-                              newx = as.matrix(train_df[(-5)]),
-                              type = "response")
-  
-  rlr_predict_train = ifelse(rlr_predict_train < 0.5, 0, 1)
-  rlrMetrics_train = getMetrics(rlr_predict_train, train_df$class)
-  
-  # Teste
-  rlr_predict_test = predict(model_rlr_cv,
-                             newx = as.matrix(test_df[(-5)]),
-                             type = "response")
-  
-  rlr_predict_test = ifelse(rlr_predict_test < 0.5, 0, 1)
-  rlrMetrics_test = getMetrics(rlr_predict_test, test_df$class)
-  
-  
-  # IC para teste
-  resultIC = as.data.frame(matrix(ncol=4, nrow=3))
-  names(resultIC) = c('ErroRate', 'Precision', 'recall', 'F1')
-  ##rownames(resultIC) = c('Métrica', 'Sup.', 'Inf.')
-  resultIC$ErroRate[1] = rlrMetrics[1]
-  resultIC$ErroRate[2] = rlrMetrics$ErroRate - (2.262*sdErroRateresult)/sqrt(10)
-  resultIC$ErroRate[3] = rlrMetrics$ErroRate + (2.262*sdErroRateresult)/sqrt(10)
-  resultIC$Precision[1] = rlrMetrics[2]
-  resultIC$Precision[2] = rlrMetrics$Precision - (2.262*sdPrecision)/sqrt(10)
-  resultIC$Precision[3] = rlrMetrics$Precision + (2.262*sdPrecision)/sqrt(10)
-  resultIC$recall[1] = rlrMetrics[3]
-  resultIC$recall[2] = rlrMetrics$recall - (2.262*sdRecall)/sqrt(10)
-  resultIC$recall[3] = rlrMetrics$recall + (2.262*sdRecall)/sqrt(10)
-  resultIC$F1[1] = rlrMetrics[4]
-  resultIC$F1[2] = rlrMetrics$F1 - (2.262*sdRecall)/sqrt(10)
-  resultIC$F1[3] = rlrMetrics$F1 + (2.262*sdRecall)/sqrt(10)
+  icEVM = as.data.frame(matrix(nrow = 4, ncol=3))
+  names(icEVM) = c('Mean', 'Inf', 'Sup')
+  rownames(icEVM) = c('ErroRate', 'Precision', 'Recall', 'F1')
+  icEVM[1,1] = meanErroRateresult
+  icEVM[2,1] = meanPrecision
+  icEVM[3,1] = meanRecall
+  icEVM[4,1] = meanf1Score
+  icEVM[1,2:3] = icErroRate
+  icEVM[2,2:3] = icPrecision
+  icEVM[3,2:3] = icRecall
+  icEVM[4,2:3] = icf1Score
   
   if(exportResults == T){
-    write.csv(rlrMetrics, file = "Results/rlr_metrics.csv")
-    #write.csv(resultIC, file = "Results/cbg_resultIC.csv")
+    write.csv(icEVM, file = "Results/evm_ic.csv")
   }
   
-  result_df = as.data.frame(matrix(nrow = length(test_df[[1]]), ncol=2))
-  names(result_df) = c('Target', 'RLR')
-  result_df$Target = test_df$class
-  result_df$RLR = rlr_predict_test
-  
-  return(list('Model'= bestModel,
-              'Metrics'= rlrMetrics_test,
-              'Results'= result_df)
-  )
-}
-
-# M6 - Ensemble com regra do voto majoritario (EVM)
-getEVM = function(classResult, exportResults = F){
-  
   classResult_evm = as.matrix(classResult)
-  
-  for (i in 1:length(dataNormTest$class)){ #i=1
+
+  for (i in 1:length(classResult$Class)){ #i=1
     nVote = sum(as.numeric(classResult_evm[i, 2:6]))
-    
+
     if (nVote > 2){
       classResult$EVM[i] = 1
     } else {
@@ -627,15 +662,16 @@ getEVM = function(classResult, exportResults = F){
     
   } #View(classResult)
   
-  matriz_evm = table(classResult$Target, classResult$EVM)
+  matriz_evm = table(classResult$Class, classResult$EVM)
+  evm_regMetrics = getMetrics(classResult$EVM, classResult$Class)
   
-  evm_regMetrics = getMetrics(classResult$EVM, classResult$Target)
+  result_df = as.data.frame(matrix(nrow = length(classResult$EVM), ncol=2))
+  names(result_df) = c('Target', 'EVM')
+  result_df$Target = classResult$Class
+  result_df$EVM = classResult
 
-  if(exportResults == T){
-    write.csv(evm_regMetrics, file = "Results/metrics_evm.csv")
-  }
-  
-  return(list('Metrics'= evm_regMetrics,
-              'Results'= classResult)
+  return(list('Metrics'= resultMatrixCV,
+              'IC' = icEVM,
+              'Results'= result_df)
   )
 }

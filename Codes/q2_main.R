@@ -40,8 +40,8 @@ dataNorm$class = data$class
 
 # Separar em conjunto de validacao (20%)
 set.seed(1123)
-sample = sample.split(data$vwti, SplitRatio = 0.8)
-dataValid = subset(data, sample == F)
+sample = sample.split(dataNorm$vwti, SplitRatio = 0.8)
+dataValid = subset(dataNorm, sample == F)
 #dataValid %>% count(class)  
 #
 # FASE 2 - Modelagem ----
@@ -83,39 +83,44 @@ modelLR$IC
 modelLR$Results
 
 # M5 - Regressão logistica com Regularizacao (RLR) -
-modelRLR = getRLR_cv(train = dataNormTrain,
-                     test = dataNormTest,
-                     exportResults = T)
+modelRLR = getRLR_cv(train = dataNorm,
+                    valid_df = dataValid,
+                    exportResults = T)
 # Resultados KNN 
-modelRLR$Model
 modelRLR$Metrics
+modelRLR$IC
 modelRLR$Results
 
 # M6 - Ensemble com regra do voto majoritario (EVM) 
-classResult = data.frame(matrix(ncol=6, nrow=length(dataNormTest$class)))
-colnames(classResult) = c('Target','CBG', 'KNN', 'Parzen', 'LR', 'RLR')
-classResult$Target = dataNormTest$class
+classResult = data.frame(matrix(ncol=6, nrow=length(dataNorm$class)))
+colnames(classResult) = c('Class','CBG', 'KNN', 'Parzen', 'LR', 'RLR')
+classResult$Class = dataNorm$class
 classResult$CBG = modelCGB$Results[,2]
 classResult$KNN = modelKNN$Results[,2]
-classResult$Parzen = modelParzen$Results
+classResult$Parzen = modelParzen$Results[,2]
 classResult$LR = modelLR$Results[,2]
 classResult$RLR = modelRLR$Results[,2]
 #View(classResult)
 
 modelEVM = getEVM(classResult, exportResults = T)
+
+# Resultados KNN 
 modelEVM$Metrics
+modelEVM$IC
 modelEVM$Results
+
+write.csv(classResult, file = "Results/classResult.csv")
 
 # FASE 3 - Analise dos resultados ----
 metricTable = data.frame(matrix(ncol=4, nrow=6))
 colnames(metricTable) = c('ErroRate', 'Precision', 'recall', 'F1')
 rownames(metricTable) = c('CBG', 'KNN', 'Parzen', 'LR', 'LRR', 'EVM')
-metricTable[1,1:4] = modelCGB$Metrics
-metricTable[2,1:4] = modelKNN$Metrics
-metricTable[3,1:4] = modelParzen$Metrics
-metricTable[4,1:4] = modelLR$Metrics
-metricTable[5,1:4] = modelRLR$Metrics
-metricTable[6,1:4] = modelEVM$Metrics
+metricTable[1,1:4] = colMeans(modelCGB$Metrics)
+metricTable[2,1:4] = colMeans(modelKNN$Metrics)
+metricTable[3,1:4] = colMeans(modelParzen$Metrics)
+metricTable[4,1:4] = colMeans(modelLR$Metrics)
+metricTable[5,1:4] = colMeans(modelRLR$Metrics)
+metricTable[6,1:4] = colMeans(modelEVM$Metrics)
 View(metricTable)
 
 write.csv(metricTable, file = "Results/metricTable.csv")
@@ -125,4 +130,3 @@ myData = melt(metricTable, id.vars = "ID")
 fTeste = friedman.test(myData$value, myData$variable, myData$ID)
 fTeste
 write.csv(c(fTeste$statistic, fTeste$p.value), file = "Results/fTeste.txt")
-

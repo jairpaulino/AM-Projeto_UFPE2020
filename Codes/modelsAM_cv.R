@@ -1,17 +1,15 @@
 # M1_cv - Classificador bayesiano gaussiano (CBG) com CV
 getCBG_cv = function(train_df, exportResults = F){
-  #train_df = dataNorm; View(train_df)
-  
+
   set.seed(2311)
   foldIndex = cvFolds(length(train_df$vwti), K = 10, R = 1)
   resultMatrixCV = as.data.frame(matrix(ncol=4, nrow=10))
   names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
   
   classAll = 1; bestModelAcc = 100
-  for(i in 1:10){#i=1
+  for(i in 1:10){
     train = train_df[foldIndex$subsets[foldIndex$which != i], ] #Set the training set
     validation = train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
-    #View(train); View(validation)
     model_cbg_cv = naiveBayes(x = train[-5], 
                               y = train$class)
     
@@ -23,11 +21,9 @@ getCBG_cv = function(train_df, exportResults = F){
     cgb_predict_all = predict(model_cbg_cv, train_df[c(1:4)])
     cbgMetrics_all = getMetrics(cgb_predict_all, train_df$class)
 
-    #View(resultMatrixCV)
     if(cbgMetrics_cv[1] < bestModelAcc){
       bestModelAcc = cbgMetrics_cv[1]
       classAll = cgb_predict_all
-      #bestModel = model_cbg_cv
     }
   }
   
@@ -82,10 +78,9 @@ getCBG_cv = function(train_df, exportResults = F){
 
 # M2_cv - Classificador bayesiano - KNN com CV
 getKNN_cv = function(train_df, valid_df, exportResults = F){
-  #train_df = dataNorm; valid_df = dataValid; 
-  
+
   maxF1 = 0; maxk = NULL
-  for(k in 1:30){#k=2
+  for(k in 1:30){
     set.seed(1)
     previsoes = knn(train = dataValid[-5], 
                     test = dataValid[-5],
@@ -106,7 +101,7 @@ getKNN_cv = function(train_df, valid_df, exportResults = F){
   names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
   
   bestModelIndex = 1; bestModelAcc = 100; bestModel = NULL
-  for(i in 1:10){#i=1
+  for(i in 1:10){
     train = train_df[foldIndex$subsets[foldIndex$which != i], ] #Set the training set
     test = train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
 
@@ -119,12 +114,6 @@ getKNN_cv = function(train_df, valid_df, exportResults = F){
 
     knnMetrics = getMetrics(knn_Predict, test$class)
     resultMatrixCV[i,] = knnMetrics
-    
-    #View(resultMatrixCV)
-    # if(knnMetrics[1] < bestModelAcc){
-    #   bestModelAcc = knnMetrics[1]
-    #   bestModelIndex = i
-    #   }
   }
   
   if(exportResults == T){
@@ -184,8 +173,7 @@ getKNN_cv = function(train_df, valid_df, exportResults = F){
 
 # M3 - CBG baseado em Janela de Parzen (CBG-JP) 
 getParzen_cv = function(train_df, valid_df, exportResults = T ) {
-  #train_df = dataNorm; valid_df = dataValid
-  
+
   # Validacao para encontrar o h
   count_0 = sum(valid_df[,5] == 1)
   count_1 = sum(valid_df[,5] == 0)
@@ -206,7 +194,7 @@ getParzen_cv = function(train_df, valid_df, exportResults = T ) {
   
   h = c(0.01, 0.1, 0.5, 1, 1.25); 
   bestH = 0; bestMetric = 0
-  for (i in 1:5){#i=1
+  for (i in 1:5){
     
     H <- diag(c(h[i], h[i], h[i], h[i]))
     zeroModel = kde(x=zero_X[,1:4], H = H)
@@ -214,7 +202,7 @@ getParzen_cv = function(train_df, valid_df, exportResults = T ) {
     humModel = kde(x=hum_X[,1:4], H = H)
     
     ParzenClf_valid = NULL
-    for(k in 1:length(valid_df$class)){#k=1
+    for(k in 1:length(valid_df$class)){
       
       prob_0 = predict(zeroModel, x = valid_df[k, 1:4])
       prob_ap_0 = prob_0*f_0
@@ -245,7 +233,7 @@ getParzen_cv = function(train_df, valid_df, exportResults = T ) {
   names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
   
   bestModelIndex = 1; bestModelAcc = 100; bestModel = NULL
-  for(i in 1:10){#i=3
+  for(i in 1:10){
     
     train = train_df[foldIndex$subsets[foldIndex$which != i], ] #Set the training set
     test = train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
@@ -272,7 +260,7 @@ getParzen_cv = function(train_df, valid_df, exportResults = T ) {
     humModel = kde(x=hum_X[,1:4], H = H)
       
     ParzenClf_valid = NULL
-    for(k in 1:length(test$class)){#k=1
+    for(k in 1:length(test$class)){
         
       prob_0 = predict(zeroModel, x = test[k, 1:4])
       prob_ap_0 = prob_0*f_0
@@ -290,11 +278,6 @@ getParzen_cv = function(train_df, valid_df, exportResults = T ) {
     metricValid = getMetrics(ParzenClf_valid, test$class)
     resultMatrixCV[i, ] = metricValid
     print(paste('Iter.:', i, metricValid[4], sep = ' '))
-      
-    # if(metricValid[4] > bestMetric){
-    #     bestMetric = metricValid[4] 
-    #     bestH = j
-    # }
   }
     
   if(exportResults == T){
@@ -357,7 +340,7 @@ getParzen_cv = function(train_df, valid_df, exportResults = T ) {
   humModel = kde(x=hum_X_train[,1:4], H = H)
   
   classAll = NULL
-  for(i in 1:length(train_df$class)){#i=1
+  for(i in 1:length(train_df$class)){
     prob_0 = predict(zeroModel, x = train_df[i, 1:4])
     prob_ap_0 = prob_0*f_0
     prob_1 = predict(humModel, x = train_df[i, 1:4])
@@ -370,7 +353,6 @@ getParzen_cv = function(train_df, valid_df, exportResults = T ) {
     }  
   }
   
-  #matriz_parzen = table(train_df$class, parzenClf_train)
   parzenMetrics_train = getMetrics(classAll, train_df$class)
   
   result_df = as.data.frame(matrix(nrow = length(train_df[[1]]), ncol=2))
@@ -388,8 +370,7 @@ getParzen_cv = function(train_df, valid_df, exportResults = T ) {
 
 # M4 - Regressão Logística (RL)
 getRL_cv = function(train_df, exportResults = F){
-  #train_df = dataNorm; 
-  
+
   foldIndex = cvFolds(length(train_df$vwti), K = 10, R = 1)
   resultMatrixCV = as.data.frame(matrix(ncol=4, nrow=10))
   names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
@@ -397,12 +378,11 @@ getRL_cv = function(train_df, exportResults = F){
   bestModelIndex = 1; bestModelAcc = 100; classAll = NULL
   
   classAll = NULL
-  for(i in 1:10){#i=1
+  for(i in 1:10){
     set.seed(2311)
     train = train_df[foldIndex$subsets[foldIndex$which != i], ] #Set the training set
     test = train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
-    #View(train); View(validation)
-    
+
     model_lr_cv = glm(class ~ .,
                       data = train,
                       family = binomial(link = 'logit')
@@ -473,7 +453,6 @@ getRL_cv = function(train_df, exportResults = F){
 
 # M5 - Regressão logistica com Regularizacao (RLR) 
 getRLR_cv= function(train_df, valid_df, exportResults = F){
-  #train_df = dataNorm; valid_df = dataValid
 
   train_df$x5 = (train_df$vwti)^2
   train_df$x6 = sqrt(train_df$swti) 
@@ -501,7 +480,7 @@ getRLR_cv= function(train_df, valid_df, exportResults = F){
   names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
   
   bestModelAcc = 100; classAll = NULL
-  for(i in 1:10){#i=1
+  for(i in 1:10){
     train = train_df[foldIndex$subsets[foldIndex$which != i], ] #Set the training set
     test = train_df[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
 
@@ -591,13 +570,12 @@ getEVM = function(classResult, exportResults = F){
   names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
   
   classAll = 1
-  for(i in 1:10){#i=1
+  for(i in 1:10){
     test = classResult[foldIndex$subsets[foldIndex$which == i], ] #Set the validation set
     classResult_evm = as.matrix(test)
-    #View(classResult_evm)
-    
+
     evmFold = NULL
-    for (j in 1:length(test$Class)){#j=2
+    for (j in 1:length(test$Class)){
       nVote = sum(as.numeric(classResult_evm[j, 2:6]))
       
       if (nVote > 2){
@@ -606,7 +584,7 @@ getEVM = function(classResult, exportResults = F){
         evmFold[j] = 0
       }
       
-    }#length(evmFold)
+    }
     
     evmMetrics_cv = getMetrics(evmFold, test$Class)
     resultMatrixCV[i,] = evmMetrics_cv
@@ -651,7 +629,7 @@ getEVM = function(classResult, exportResults = F){
   
   classResult_evm = as.matrix(classResult)
 
-  for (i in 1:length(classResult$Class)){ #i=1
+  for (i in 1:length(classResult$Class)){
     nVote = sum(as.numeric(classResult_evm[i, 2:6]))
 
     if (nVote > 2){
@@ -660,7 +638,7 @@ getEVM = function(classResult, exportResults = F){
       classResult$EVM[i] = 0
     }
     
-  } #View(classResult)
+  } 
   
   matriz_evm = table(classResult$Class, classResult$EVM)
   evm_regMetrics = getMetrics(classResult$EVM, classResult$Class)

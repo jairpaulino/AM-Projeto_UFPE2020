@@ -243,4 +243,20 @@ x1 <- crabs[crabs$sp=="B", c(4,6)]
 x2 <- crabs[crabs$sp=="O", c(4,6)]
 kde.test(x1=x1, x2=x2)$pvalue ## reject H0: f1=f2
 
+normalize = function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+
+
+normalize_minMax = function(array, x=0.2, y=0.8, max, min){
+  #Normalize to [0, 1]
+  range = max - min
+  norm1 = (array - min) / range
+  normalized = (array - min) / range
+  #Then scale to [x,y]
+  range2 = y - x
+  normalized = (norm1*range2) + x
+  return(normalized)
+}
+
 

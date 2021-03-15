@@ -1,6 +1,6 @@
-#Title: Repeated K-Fold CV to classification
+#Title: Modelos de classificao para o dataset 'banknote authentication'
 #Author: Jair Paulino
-#Date: 2021/02/15
+#Date: 2021/mar/10
 
 # Inicializacao ----
 # limpar dados e figuras
@@ -19,7 +19,6 @@ library(class)     #knn
 library(dplyr)     #dados
 library(reshape2)  #dados
 library(ks)        #Parzen
-library(klaR)
 library(cvTools)   #cv tools
 
 # Importar funcoes implementadas
@@ -27,27 +26,25 @@ source("Codes/auxiliar.R")
 source("Codes/modelsAM_cv.R")
 
 # FASE 1 - Pre-processamento ----
-#
+
 # Importar dados
 data = read.csv("Data/data_banknote_authentication.csv", sep = ";")
 data$class = factor(data$class, levels = c(0, 1))
-#head(data); View(data); str(data)
 
 # Normalizar dados
 dataNorm = as.data.frame(sapply(data[,1:4], FUN = normalize_2))
 dataNorm$class = data$class
-#View(dataNorm)
 
 # Separar em conjunto de validacao (20%)
 set.seed(1123)
 sample = sample.split(dataNorm$vwti, SplitRatio = 0.8)
-dataValid = subset(dataNorm, sample == F)
-#dataValid %>% count(class)  
+dataNormValid = subset(dataNorm, sample == F)
+dataValid = subset(data, sample == F)
 #
 # FASE 2 - Modelagem ----
 #
 # M1 - Classificador bayesiano gaussiano (CBG)
-modelCGB = getCBG_cv(train_df = dataNorm,
+modelCGB = getCBG_cv(train_df = data,
                      exportResults = TRUE)
 # Resultados CBG 
 modelCGB$Metrics
@@ -56,7 +53,7 @@ modelCGB$Results
 
 # M2 - CBG baseado em K-vizinhos (CBG-kNN)
 modelKNN = getKNN_cv(train_df = dataNorm, 
-                     valid_df = dataValid,
+                     valid_df = dataNormValid,
                      exportResults = T)
 # Resultados KNN 
 modelKNN$Metrics
@@ -65,7 +62,7 @@ modelKNN$Results
 
 # M3 - CBG baseado em Janela de Parzen (CBG-JP)
 modelParzen = getParzen_cv(train_df = dataNorm, 
-                           valid_df = dataValid,
+                           valid_df = dataNormValid,
                            exportResults = T)
 # Resultados RL 
 modelParzen$BestH
@@ -74,7 +71,7 @@ modelParzen$IC
 modelParzen$Results
 
 # M4 - Regressão Logística (RL)
-modelLR = getRL_cv(train = dataNorm,
+modelLR = getRL_cv(train = data,
                    exportResults = T)
 
 # Resultados RL 
@@ -84,7 +81,7 @@ modelLR$Results
 
 # M5 - Regressão logistica com Regularizacao (RLR) -
 modelRLR = getRLR_cv(train = dataNorm,
-                    valid_df = dataValid,
+                    valid_df = dataNormValid,
                     exportResults = T)
 # Resultados KNN 
 modelRLR$Metrics
@@ -109,12 +106,13 @@ modelEVM$Metrics
 modelEVM$IC
 modelEVM$Results
 
+# Salvar resultados 
 write.csv(classResult, file = "Results/classResult.csv")
 
 # FASE 3 - Analise dos resultados ----
 metricTable = data.frame(matrix(ncol=4, nrow=6))
 colnames(metricTable) = c('ErroRate', 'Precision', 'recall', 'F1')
-rownames(metricTable) = c('CBG', 'KNN', 'Parzen', 'LR', 'LRR', 'EVM')
+rownames(metricTable) = c('CBG', 'KNN', 'CBP', 'LR', 'LRR', 'EVM')
 metricTable[1,1:4] = colMeans(modelCGB$Metrics)
 metricTable[2,1:4] = colMeans(modelKNN$Metrics)
 metricTable[3,1:4] = colMeans(modelParzen$Metrics)
@@ -123,8 +121,10 @@ metricTable[5,1:4] = colMeans(modelRLR$Metrics)
 metricTable[6,1:4] = colMeans(modelEVM$Metrics)
 View(metricTable)
 
+# Salvar resultados
 write.csv(metricTable, file = "Results/metricTable.csv")
 
+# Friedman test
 metricTable$ID = seq.int(nrow(metricTable))
 myData = melt(metricTable, id.vars = "ID")
 fTeste = friedman.test(myData$value, myData$variable, myData$ID)

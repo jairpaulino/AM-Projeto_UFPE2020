@@ -22,7 +22,7 @@ library(ks)        #Parzen
 library(cvTools)   #cv tools
 
 # Importar funcoes implementadas
-source("Codes/auxiliar.R")
+#source("Codes/auxiliar.R")
 source("Codes/modelsAM_cv.R")
 
 # FASE 1 - Pre-processamento ----
@@ -61,10 +61,10 @@ modelKNN$IC
 modelKNN$Results
 
 # M3 - CBG baseado em Janela de Parzen (CBG-JP)
-modelParzen = getParzen_cv(train_df = dataNorm, 
+modelParzen = getParzen_cv(train_df = dataNorm,
                            valid_df = dataNormValid,
                            exportResults = T)
-# Resultados RL 
+# # Resultados RL 
 modelParzen$BestH
 modelParzen$Metrics
 modelParzen$IC
@@ -130,3 +130,19 @@ myData = melt(metricTable, id.vars = "ID")
 fTeste = friedman.test(myData$value, myData$variable, myData$ID)
 fTeste
 write.csv(c(fTeste$statistic, fTeste$p.value), file = "Results/fTeste.txt")
+
+#names(metricTable)[3] = 'Recall' 
+names(metricTable)[1:4] = c('Taxa de erro', 'Precisão', 'Cobertura', 'F-measure') 
+
+jpeg(file = "Results/generalResults.jpeg", width = 1200, height = 800, res = 150, quality=100 )
+counts = as.matrix(metricTable[c(-5)])
+barplot(counts,
+        xlab="Metrics", 
+        ylim = c(0,1),
+        col=c(gray.colors(6)), 
+        beside=TRUE)
+legend('topleft', 95, legend=rownames(metricTable[(-5)]),
+       col=c(gray.colors(6)), pch=15, cex=0.8, inset = 0.03)
+
+dev.off()
+

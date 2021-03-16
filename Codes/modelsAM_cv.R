@@ -4,7 +4,7 @@ getCBG_cv = function(train_df, exportResults = F){
   set.seed(2311)
   foldIndex = cvFolds(length(train_df$vwti), K = 10, R = 1)
   resultMatrixCV = as.data.frame(matrix(ncol=4, nrow=10))
-  names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
+  names(resultMatrixCV) = c('TaxaErro', 'Precisao', 'Cobertura', 'Fmeasure')
   
   classAll = 1; bestModelAcc = 100
   for(i in 1:10){
@@ -32,33 +32,33 @@ getCBG_cv = function(train_df, exportResults = F){
   }
 
   # Calculo do IC
-  meanErroRateresult = mean(resultMatrixCV$ErroRate)
-  sdErroRateresult = sd(resultMatrixCV$ErroRate)
-  icErroRate = (t.test(resultMatrixCV$ErroRate))$conf.int[1:2]
+  meanTaxaErroresult = mean(resultMatrixCV$TaxaErro)
+  sdTaxaErroresult = sd(resultMatrixCV$TaxaErro)
+  icTaxaErro = (t.test(resultMatrixCV$TaxaErro))$conf.int[1:2]
   
-  meanPrecision = mean(resultMatrixCV$Precision)
-  sdPrecision = sd(resultMatrixCV$Precision)
-  icPrecision = (t.test(resultMatrixCV$Precision))$conf.int[1:2]
+  meanPrecisao = mean(resultMatrixCV$Precisao)
+  sdPrecisao = sd(resultMatrixCV$Precisao)
+  icPrecisao = (t.test(resultMatrixCV$Precisao))$conf.int[1:2]
   
-  meanRecall = mean(resultMatrixCV$recall)
-  sdRecall = sd(resultMatrixCV$recall)
-  icRecall = (t.test(resultMatrixCV$recall))$conf.int[1:2]
+  meanCobertura = mean(resultMatrixCV$Cobertura)
+  sdCobertura = sd(resultMatrixCV$Cobertura)
+  icCobertura = (t.test(resultMatrixCV$Cobertura))$conf.int[1:2]
   
-  meanf1Score = mean(resultMatrixCV$F1)
-  sdf1Score = sd(resultMatrixCV$F1)
-  icf1Score = (t.test(resultMatrixCV$F1))$conf.int[1:2]
+  meanFmeasureScore = mean(resultMatrixCV$Fmeasure)
+  sdFmeasureScore = sd(resultMatrixCV$Fmeasure)
+  icFmeasureScore = (t.test(resultMatrixCV$Fmeasure))$conf.int[1:2]
   
   icCBG = as.data.frame(matrix(nrow = 4, ncol=3))
   names(icCBG) = c('Mean', 'Inf', 'Sup')
-  rownames(icCBG) = c('ErroRate', 'Precision', 'Recall', 'F1')
-  icCBG[1,1] = meanErroRateresult
-  icCBG[2,1] = meanPrecision
-  icCBG[3,1] = meanRecall
-  icCBG[4,1] = meanf1Score
-  icCBG[1,2:3] = icErroRate
-  icCBG[2,2:3] = icPrecision
-  icCBG[3,2:3] = icRecall
-  icCBG[4,2:3] = icf1Score
+  rownames(icCBG) = c('TaxaErro', 'Precisao', 'Cobertura', 'Fmeasure')
+  icCBG[1,1] = meanTaxaErroresult
+  icCBG[2,1] = meanPrecisao
+  icCBG[3,1] = meanCobertura
+  icCBG[4,1] = meanFmeasureScore
+  icCBG[1,2:3] = icTaxaErro
+  icCBG[2,2:3] = icPrecisao
+  icCBG[3,2:3] = icCobertura
+  icCBG[4,2:3] = icFmeasureScore
   
   if(exportResults == T){
     write.csv(icCBG, file = "Results/cbg_ic.csv")
@@ -78,19 +78,20 @@ getCBG_cv = function(train_df, exportResults = F){
 
 # M2_cv - Classificador bayesiano - KNN com CV
 getKNN_cv = function(train_df, valid_df, exportResults = F){
-
-  maxF1 = 0; maxk = NULL
-  for(k in 1:30){
+  #train_df = dataNorm; valid_df = dataNormValid
+  
+  maxFmeasure = 0; maxk = NULL
+  for(k in 1:30){ #k=1
     set.seed(1)
     previsoes = knn(train = dataValid[-5], 
                     test = dataValid[-5],
                     cl = dataValid$class,
                     k = k)
     
-    metricFI = getMetrics(previsoes, dataValid$class)$F1 
+    metricFI = getMetrics(previsoes, dataValid$class)[4] 
     
-    if(metricFI > maxF1){
-      maxF1 = metricFI
+    if(metricFI > maxFmeasure){
+      maxFmeasure = metricFI
       maxk = k
     }
   }
@@ -98,7 +99,7 @@ getKNN_cv = function(train_df, valid_df, exportResults = F){
   set.seed(2311)
   foldIndex = cvFolds(length(train_df$vwti), K = 10, R = 1)
   resultMatrixCV = as.data.frame(matrix(ncol=4, nrow=10))
-  names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
+  names(resultMatrixCV) = c('TaxaErro', 'Precisao', 'Cobertura', 'Fmeasure')
   
   bestModelIndex = 1; bestModelAcc = 100; bestModel = NULL
   for(i in 1:10){
@@ -126,33 +127,33 @@ getKNN_cv = function(train_df, valid_df, exportResults = F){
                     k = maxk)
 
   # Calculo do IC
-  meanErroRateresult = mean(resultMatrixCV$ErroRate)
-  sdErroRateresult = sd(resultMatrixCV$ErroRate)
-  icErroRate = (t.test(resultMatrixCV$ErroRate))$conf.int[1:2]
+  meanTaxaErroresult = mean(resultMatrixCV$TaxaErro)
+  sdTaxaErroresult = sd(resultMatrixCV$TaxaErro)
+  icTaxaErro = (t.test(resultMatrixCV$TaxaErro))$conf.int[1:2]
   
-  meanPrecision = mean(resultMatrixCV$Precision)
-  sdPrecision = sd(resultMatrixCV$Precision)
-  icPrecision = (t.test(resultMatrixCV$Precision))$conf.int[1:2]
+  meanPrecisao = mean(resultMatrixCV$Precisao)
+  sdPrecisao = sd(resultMatrixCV$Precisao)
+  icPrecisao = (t.test(resultMatrixCV$Precisao))$conf.int[1:2]
   
-  meanRecall = mean(resultMatrixCV$recall)
-  sdRecall = sd(resultMatrixCV$recall)
-  #icRecall = (t.test(resultMatrixCV$recall))$conf.int[1:2]
+  meanCobertura = mean(resultMatrixCV$Cobertura)
+  sdCobertura = sd(resultMatrixCV$Cobertura)
+  #icCobertura = (t.test(resultMatrixCV$Cobertura))$conf.int[1:2]
   
-  meanf1Score = mean(resultMatrixCV$F1)
-  sdf1Score = sd(resultMatrixCV$F1)
-  icf1Score = (t.test(resultMatrixCV$F1))$conf.int[1:2]
+  meanFmeasureScore = mean(resultMatrixCV$Fmeasure)
+  sdFmeasureScore = sd(resultMatrixCV$Fmeasure)
+  icFmeasureScore = (t.test(resultMatrixCV$Fmeasure))$conf.int[1:2]
   
   icKnn = as.data.frame(matrix(nrow = 4, ncol=3))
   names(icKnn) = c('Mean', 'Inf', 'Sup')
-  rownames(icKnn) = c('ErroRate', 'Precision', 'Recall', 'F1')
-  icKnn[1,1] = meanErroRateresult
-  icKnn[2,1] = meanPrecision
-  icKnn[3,1] = meanRecall
-  icKnn[4,1] = meanf1Score
-  icKnn[1,2:3] = icErroRate
-  icKnn[2,2:3] = icPrecision
-  #icKnn[3,2:3] = icRecall
-  icKnn[4,2:3] = icf1Score
+  rownames(icKnn) = c('TaxaErro', 'Precisao', 'Cobertura', 'Fmeasure')
+  icKnn[1,1] = meanTaxaErroresult
+  icKnn[2,1] = meanPrecisao
+  icKnn[3,1] = meanCobertura
+  icKnn[4,1] = meanFmeasureScore
+  icKnn[1,2:3] = icTaxaErro
+  icKnn[2,2:3] = icPrecisao
+  #icKnn[3,2:3] = icCobertura
+  icKnn[4,2:3] = icFmeasureScore
   
   if(exportResults == T){
     write.csv(icKnn, file = "Results/knn_ic.csv")
@@ -230,7 +231,7 @@ getParzen_cv = function(train_df, valid_df, exportResults = T ) {
   # Validacao cruzada 10-folds
   foldIndex = cvFolds(length(train_df$vwti), K = 10, R = 1)
   resultMatrixCV = as.data.frame(matrix(ncol=4, nrow=10))
-  names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
+  names(resultMatrixCV) = c('TaxaErro', 'Precisao', 'Cobertura', 'Fmeasure')
   
   bestModelIndex = 1; bestModelAcc = 100; bestModel = NULL
   for(i in 1:10){
@@ -285,33 +286,33 @@ getParzen_cv = function(train_df, valid_df, exportResults = T ) {
   }
   
   # Calculo do IC
-  meanErroRateresult = mean(resultMatrixCV$ErroRate)
-  sdErroRateresult = sd(resultMatrixCV$ErroRate)
-  icErroRate = (t.test(resultMatrixCV$ErroRate))$conf.int[1:2]
+  meanTaxaErroresult = mean(resultMatrixCV$TaxaErro)
+  sdTaxaErroresult = sd(resultMatrixCV$TaxaErro)
+  icTaxaErro = (t.test(resultMatrixCV$TaxaErro))$conf.int[1:2]
   
-  meanPrecision = mean(resultMatrixCV$Precision)
-  sdPrecision = sd(resultMatrixCV$Precision)
-  icPrecision = (t.test(resultMatrixCV$Precision))$conf.int[1:2]
+  meanPrecisao = mean(resultMatrixCV$Precisao)
+  sdPrecisao = sd(resultMatrixCV$Precisao)
+  icPrecisao = (t.test(resultMatrixCV$Precisao))$conf.int[1:2]
   
-  meanRecall = mean(resultMatrixCV$recall)
-  sdRecall = sd(resultMatrixCV$recall)
-  icRecall = (t.test(resultMatrixCV$recall))$conf.int[1:2]
+  meanCobertura = mean(resultMatrixCV$Cobertura)
+  sdCobertura = sd(resultMatrixCV$Cobertura)
+  icCobertura = (t.test(resultMatrixCV$Cobertura))$conf.int[1:2]
   
-  meanf1Score = mean(resultMatrixCV$F1)
-  sdf1Score = sd(resultMatrixCV$F1)
-  icf1Score = (t.test(resultMatrixCV$F1))$conf.int[1:2]
+  meanFmeasureScore = mean(resultMatrixCV$Fmeasure)
+  sdFmeasureScore = sd(resultMatrixCV$Fmeasure)
+  icFmeasureScore = (t.test(resultMatrixCV$Fmeasure))$conf.int[1:2]
   
   icParzen = as.data.frame(matrix(nrow = 4, ncol=3))
   names(icParzen) = c('Mean', 'Inf', 'Sup')
-  rownames(icParzen) = c('ErroRate', 'Precision', 'Recall', 'F1')
-  icParzen[1,1] = meanErroRateresult
-  icParzen[2,1] = meanPrecision
-  icParzen[3,1] = meanRecall
-  icParzen[4,1] = meanf1Score
-  icParzen[1,2:3] = icErroRate
-  icParzen[2,2:3] = icPrecision
-  icParzen[3,2:3] = icRecall
-  icParzen[4,2:3] = icf1Score
+  rownames(icParzen) = c('TaxaErro', 'Precisao', 'Cobertura', 'Fmeasure')
+  icParzen[1,1] = meanTaxaErroresult
+  icParzen[2,1] = meanPrecisao
+  icParzen[3,1] = meanCobertura
+  icParzen[4,1] = meanFmeasureScore
+  icParzen[1,2:3] = icTaxaErro
+  icParzen[2,2:3] = icPrecisao
+  icParzen[3,2:3] = icCobertura
+  icParzen[4,2:3] = icFmeasureScore
   
   if(exportResults == T){
     write.csv(icParzen, file = "Results/parzen_ic.csv")
@@ -373,7 +374,7 @@ getRL_cv = function(train_df, exportResults = F){
 
   foldIndex = cvFolds(length(train_df$vwti), K = 10, R = 1)
   resultMatrixCV = as.data.frame(matrix(ncol=4, nrow=10))
-  names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
+  names(resultMatrixCV) = c('TaxaErro', 'Precisao', 'Cobertura', 'Fmeasure')
   
   bestModelIndex = 1; bestModelAcc = 100; classAll = NULL
   
@@ -408,33 +409,33 @@ getRL_cv = function(train_df, exportResults = F){
   }
   
   # Calculo do IC
-  meanErroRateresult = mean(resultMatrixCV$ErroRate)
-  sdErroRateresult = sd(resultMatrixCV$ErroRate)
-  icErroRate = (t.test(resultMatrixCV$ErroRate))$conf.int[1:2]
+  meanTaxaErroresult = mean(resultMatrixCV$TaxaErro)
+  sdTaxaErroresult = sd(resultMatrixCV$TaxaErro)
+  icTaxaErro = (t.test(resultMatrixCV$TaxaErro))$conf.int[1:2]
   
-  meanPrecision = mean(resultMatrixCV$Precision)
-  sdPrecision = sd(resultMatrixCV$Precision)
-  icPrecision = (t.test(resultMatrixCV$Precision))$conf.int[1:2]
+  meanPrecisao = mean(resultMatrixCV$Precisao)
+  sdPrecisao = sd(resultMatrixCV$Precisao)
+  icPrecisao = (t.test(resultMatrixCV$Precisao))$conf.int[1:2]
   
-  meanRecall = mean(resultMatrixCV$recall)
-  sdRecall = sd(resultMatrixCV$recall)
-  icRecall = (t.test(resultMatrixCV$recall))$conf.int[1:2]
+  meanCobertura = mean(resultMatrixCV$Cobertura)
+  sdCobertura = sd(resultMatrixCV$Cobertura)
+  icCobertura = (t.test(resultMatrixCV$Cobertura))$conf.int[1:2]
   
-  meanf1Score = mean(resultMatrixCV$F1)
-  sdf1Score = sd(resultMatrixCV$F1)
-  icf1Score = (t.test(resultMatrixCV$F1))$conf.int[1:2]
+  meanFmeasureScore = mean(resultMatrixCV$Fmeasure)
+  sdFmeasureScore = sd(resultMatrixCV$Fmeasure)
+  icFmeasureScore = (t.test(resultMatrixCV$Fmeasure))$conf.int[1:2]
   
   icLR = as.data.frame(matrix(nrow = 4, ncol=3))
   names(icLR) = c('Mean', 'Inf', 'Sup')
-  rownames(icLR) = c('ErroRate', 'Precision', 'Recall', 'F1')
-  icLR[1,1] = meanErroRateresult
-  icLR[2,1] = meanPrecision
-  icLR[3,1] = meanRecall
-  icLR[4,1] = meanf1Score
-  icLR[1,2:3] = icErroRate
-  icLR[2,2:3] = icPrecision
-  icLR[3,2:3] = icRecall
-  icLR[4,2:3] = icf1Score
+  rownames(icLR) = c('TaxaErro', 'Precisao', 'Cobertura', 'Fmeasure')
+  icLR[1,1] = meanTaxaErroresult
+  icLR[2,1] = meanPrecisao
+  icLR[3,1] = meanCobertura
+  icLR[4,1] = meanFmeasureScore
+  icLR[1,2:3] = icTaxaErro
+  icLR[2,2:3] = icPrecisao
+  icLR[3,2:3] = icCobertura
+  icLR[4,2:3] = icFmeasureScore
   
   if(exportResults == T){
     write.csv(icLR, file = "Results/lr_ic.csv")
@@ -453,7 +454,8 @@ getRL_cv = function(train_df, exportResults = F){
 
 # M5 - Regressão logistica com Regularizacao (RLR) 
 getRLR_cv= function(train_df, valid_df, exportResults = F){
-
+  #train_df = dataNorm; valid_df = dataNormValid
+  
   train_df$x5 = (train_df$vwti)^2
   train_df$x6 = sqrt(train_df$swti) 
   train_df$x7 = log(train_df$cwti) 
@@ -477,7 +479,7 @@ getRLR_cv= function(train_df, valid_df, exportResults = F){
   
   foldIndex = cvFolds(length(train_df$vwti), K = 10, R = 1)
   resultMatrixCV = as.data.frame(matrix(ncol=4, nrow=10))
-  names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
+  names(resultMatrixCV) = c('TaxaErro', 'Precisao', 'Cobertura', 'Fmeasure')
   
   bestModelAcc = 100; classAll = NULL
   for(i in 1:10){
@@ -516,33 +518,33 @@ getRLR_cv= function(train_df, valid_df, exportResults = F){
   }
   
   # Calculo do IC
-  meanErroRateresult = mean(resultMatrixCV$ErroRate)
-  sdErroRateresult = sd(resultMatrixCV$ErroRate)
-  icErroRate = (t.test(resultMatrixCV$ErroRate))$conf.int[1:2]
+  meanTaxaErroresult = mean(resultMatrixCV$TaxaErro)
+  sdTaxaErroresult = sd(resultMatrixCV$TaxaErro)
+  icTaxaErro = (t.test(resultMatrixCV$TaxaErro))$conf.int[1:2]
   
-  meanPrecision = mean(resultMatrixCV$Precision)
-  sdPrecision = sd(resultMatrixCV$Precision)
-  icPrecision = (t.test(resultMatrixCV$Precision))$conf.int[1:2]
+  meanPrecisao = mean(resultMatrixCV$Precisao)
+  sdPrecisao = sd(resultMatrixCV$Precisao)
+  icPrecisao = (t.test(resultMatrixCV$Precisao))$conf.int[1:2]
   
-  meanRecall = mean(resultMatrixCV$recall)
-  sdRecall = sd(resultMatrixCV$recall)
-  icRecall = (t.test(resultMatrixCV$recall))$conf.int[1:2]
+  meanCobertura = mean(resultMatrixCV$Cobertura)
+  sdCobertura = sd(resultMatrixCV$Cobertura)
+  icCobertura = (t.test(resultMatrixCV$Cobertura))$conf.int[1:2]
   
-  meanf1Score = mean(resultMatrixCV$F1)
-  sdf1Score = sd(resultMatrixCV$F1)
-  icf1Score = (t.test(resultMatrixCV$F1))$conf.int[1:2]
+  meanFmeasureScore = mean(resultMatrixCV$Fmeasure)
+  sdFmeasureScore = sd(resultMatrixCV$Fmeasure)
+  icFmeasureScore = (t.test(resultMatrixCV$Fmeasure))$conf.int[1:2]
 
   icRLR = as.data.frame(matrix(nrow = 4, ncol=3))
   names(icRLR) = c('Mean', 'Inf', 'Sup')
-  rownames(icRLR) = c('ErroRate', 'Precision', 'Recall', 'F1')
-  icRLR[1,1] = meanErroRateresult
-  icRLR[2,1] = meanPrecision
-  icRLR[3,1] = meanRecall
-  icRLR[4,1] = meanf1Score
-  icRLR[1,2:3] = icErroRate
-  icRLR[2,2:3] = icPrecision
-  icRLR[3,2:3] = icRecall
-  icRLR[4,2:3] = icf1Score
+  rownames(icRLR) = c('TaxaErro', 'Precisao', 'Cobertura', 'Fmeasure')
+  icRLR[1,1] = meanTaxaErroresult
+  icRLR[2,1] = meanPrecisao
+  icRLR[3,1] = meanCobertura
+  icRLR[4,1] = meanFmeasureScore
+  icRLR[1,2:3] = icTaxaErro
+  icRLR[2,2:3] = icPrecisao
+  icRLR[3,2:3] = icCobertura
+  icRLR[4,2:3] = icFmeasureScore
   
   if(exportResults == T){
     write.csv(icRLR, file = "Results/rlr_ic.csv")
@@ -567,7 +569,7 @@ getEVM = function(classResult, exportResults = F){
   set.seed(2311)
   foldIndex = cvFolds(length(classResult$Class), K = 10, R = 1)
   resultMatrixCV = as.data.frame(matrix(ncol=4, nrow=10))
-  names(resultMatrixCV) = c('ErroRate', 'Precision', 'recall', 'F1')
+  names(resultMatrixCV) = c('TaxaErro', 'Precisao', 'Cobertura', 'Fmeasure')
   
   classAll = 1
   for(i in 1:10){
@@ -595,33 +597,33 @@ getEVM = function(classResult, exportResults = F){
   }
   
   # Calculo do IC
-  meanErroRateresult = mean(resultMatrixCV$ErroRate)
-  sdErroRateresult = sd(resultMatrixCV$ErroRate)
-  icErroRate = (t.test(resultMatrixCV$ErroRate))$conf.int[1:2]
+  meanTaxaErroresult = mean(resultMatrixCV$TaxaErro)
+  sdTaxaErroresult = sd(resultMatrixCV$TaxaErro)
+  icTaxaErro = (t.test(resultMatrixCV$TaxaErro))$conf.int[1:2]
   
-  meanPrecision = mean(resultMatrixCV$Precision)
-  sdPrecision = sd(resultMatrixCV$Precision)
-  icPrecision = (t.test(resultMatrixCV$Precision))$conf.int[1:2]
+  meanPrecisao = mean(resultMatrixCV$Precisao)
+  sdPrecisao = sd(resultMatrixCV$Precisao)
+  icPrecisao = (t.test(resultMatrixCV$Precisao))$conf.int[1:2]
   
-  meanRecall = mean(resultMatrixCV$recall)
-  sdRecall = sd(resultMatrixCV$recall)
-  icRecall = (t.test(resultMatrixCV$recall))$conf.int[1:2]
+  meanCobertura = mean(resultMatrixCV$Cobertura)
+  sdCobertura = sd(resultMatrixCV$Cobertura)
+  icCobertura = (t.test(resultMatrixCV$Cobertura))$conf.int[1:2]
   
-  meanf1Score = mean(resultMatrixCV$F1)
-  sdf1Score = sd(resultMatrixCV$F1)
-  icf1Score = (t.test(resultMatrixCV$F1))$conf.int[1:2]
+  meanFmeasureScore = mean(resultMatrixCV$Fmeasure)
+  sdFmeasureScore = sd(resultMatrixCV$Fmeasure)
+  icFmeasureScore = (t.test(resultMatrixCV$Fmeasure))$conf.int[1:2]
   
   icEVM = as.data.frame(matrix(nrow = 4, ncol=3))
   names(icEVM) = c('Mean', 'Inf', 'Sup')
-  rownames(icEVM) = c('ErroRate', 'Precision', 'Recall', 'F1')
-  icEVM[1,1] = meanErroRateresult
-  icEVM[2,1] = meanPrecision
-  icEVM[3,1] = meanRecall
-  icEVM[4,1] = meanf1Score
-  icEVM[1,2:3] = icErroRate
-  icEVM[2,2:3] = icPrecision
-  icEVM[3,2:3] = icRecall
-  icEVM[4,2:3] = icf1Score
+  rownames(icEVM) = c('TaxaErro', 'Precisao', 'Cobertura', 'Fmeasure')
+  icEVM[1,1] = meanTaxaErroresult
+  icEVM[2,1] = meanPrecisao
+  icEVM[3,1] = meanCobertura
+  icEVM[4,1] = meanFmeasureScore
+  icEVM[1,2:3] = icTaxaErro
+  icEVM[2,2:3] = icPrecisao
+  icEVM[3,2:3] = icCobertura
+  icEVM[4,2:3] = icFmeasureScore
   
   if(exportResults == T){
     write.csv(icEVM, file = "Results/evm_ic.csv")
@@ -652,4 +654,36 @@ getEVM = function(classResult, exportResults = F){
               'IC' = icEVM,
               'Results'= result_df)
   )
+}
+
+# Funcao - Normalize [0.2; 0.8]
+normalize_2 = function(array, x = 0.2, y = 0.8){
+  #Normalize to [0, 1]
+  m = min(array)
+  range = max(array) - m
+  norm1 = (array - m) / range
+  
+  #Then scale to [x,y]
+  range2 = y - x
+  normalized = (norm1*range2) + x
+  return(normalized)
+}
+
+# Calcula as metricas
+getMetrics = function(y_pred, y_true){
+
+  acc = Accuracy(y_pred, y_true)
+  TaxaErro = 1 - acc
+  recall = Recall(y_pred, y_true)
+  f1Score = F1_Score(y_pred, y_true)
+  precision = Precision(y_pred, y_true)
+  
+  metrics_df = as.data.frame(matrix(ncol=4, nrow=1))           
+  names(metrics_df) = c('TaxaErro', 'Precisao', 'Cobertura', 'Fmeasure') 
+  metrics_df$TaxaErro = TaxaErro
+  metrics_df$Precisao = precision
+  metrics_df$Cobertura = recall
+  metrics_df$Fmeasure = f1Score
+  
+  return(metrics_df)
 }
